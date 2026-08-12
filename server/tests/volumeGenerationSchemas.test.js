@@ -664,6 +664,21 @@ test("chapter task sheet schema parses taskSheet plus aliased scene cards", () =
       inheritedHookResponsibilities: ["承接上一章断裂的情报链"],
       endingHook: "更高层级的敌人开始直接介入。",
     },
+    craft_plan: {
+      strategy_mode: "focused",
+      chapter_approach: "让情报通过行动兑现为第一次反压。",
+      selection_rationale: "本章最需要把信息优势转化为可见收益。",
+      pacing_strategy: "快速接情报，中段集中反压，尾段抬高压力。",
+      ending_strategy: "用更高层敌人介入的具体动作制造钩子。",
+      techniques: [{
+        technique: "evidence_chain",
+        targetScenes: ["intel_handover"],
+        objective: "让情报可信且可执行。",
+        instruction: "通过两条可核对细节确认情报，而不是旁白担保。",
+        strength: "medium",
+      }],
+      avoid_list: ["不要让角色用对白解释全部背景。"],
+    },
     scenes: [
       {
         sceneKey: "intel_handover",
@@ -719,4 +734,6 @@ test("chapter task sheet schema parses taskSheet plus aliased scene cards", () =
   assert.deepEqual(parsed.sceneCards[1].mustAdvance, ["明确收益", "敌方被迫应对"]);
   assert.deepEqual(parsed.sceneCards[1].forbiddenExpansion, ["不要洗白敌方", "不要直接大决战"]);
   assert.equal(parsed.sceneCards[2].targetWordCount, 800);
+  assert.equal(parsed.craftPlan.mode, "focused");
+  assert.equal(parsed.craftPlan.selectedTechniques[0].sceneKeys[0], "intel_handover");
 });

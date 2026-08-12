@@ -97,7 +97,7 @@ export async function generateChapterTaskSheetDetail(params: {
           provider: params.options.provider,
           model: params.options.model,
           temperature: params.options.temperature ?? 0.35,
-          maxTokens: 3_200,
+          maxTokens: 4_000,
           taskId: params.options.taskId,
           entrypoint: params.options.entrypoint,
           novelId: promptInput.workspace.novelId,
@@ -114,6 +114,7 @@ export async function generateChapterTaskSheetDetail(params: {
         {
           scenes: generated.output.sceneCards,
           readerExperience: generated.output.readerExperience,
+          craftPlan: generated.output.craftPlan,
         },
         generated.output.targetWordCount ?? promptInput.targetChapter.targetWordCount,
       );

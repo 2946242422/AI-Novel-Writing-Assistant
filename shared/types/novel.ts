@@ -43,6 +43,9 @@ export type {
   StoryModeProfile,
 } from "./storyMode";
 export type {
+  ChapterCraftPlan,
+  ChapterCraftTechnique,
+  ChapterCraftTechniqueType,
   ChapterSceneCard,
   ChapterScenePlan,
   LengthBudgetContract,

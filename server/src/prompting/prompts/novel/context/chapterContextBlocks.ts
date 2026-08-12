@@ -3,6 +3,10 @@ import type {
   ChapterReviewContext,
   ChapterWriteContext,
 } from "@ai-novel/shared/types/chapterRuntime";
+import {
+  formatChapterCraftTechniqueLabel,
+  normalizeChapterCraftPlan,
+} from "@ai-novel/shared/types/novel/chapterCraft";
 import { createContextBlock } from "../../../core/contextBudget";
 import type { PromptContextBlock } from "../../../core/promptTypes";
 import { buildWriterStyleContractText } from "../../../../services/styleEngine/styleContractText";
@@ -216,6 +220,30 @@ function buildChapterBoundaryContextBlock(writeContext: ChapterWriteContext): Pr
   });
 }
 
+export function buildChapterCraftPlanText(rawPlan: unknown): string {
+  const craftPlan = normalizeChapterCraftPlan(rawPlan);
+  const techniqueLines = craftPlan.selectedTechniques.length > 0
+    ? craftPlan.selectedTechniques.map((technique) => [
+      `- ${formatChapterCraftTechniqueLabel(technique.type)} [${technique.intensity}]`,
+      `场景=${technique.sceneKeys.join(" / ")}`,
+      `目的=${technique.purpose}`,
+      `执行=${technique.guidance}`,
+    ].join(" | "))
+    : ["- 本章不强制使用专门技法，保持克制并服从场景任务。"];
+  return [
+    "AI 自主写法方案（正文、验收与修复共用）：",
+    `模式：${craftPlan.mode}`,
+    `章节写法：${craftPlan.chapterApproach}`,
+    `选择理由：${craftPlan.selectionRationale}`,
+    `节奏策略：${craftPlan.pacingStrategy}`,
+    `结尾策略：${craftPlan.endingStrategy}`,
+    "选用技法：",
+    ...techniqueLines,
+    toListBlock("本章避免", craftPlan.avoid, "无额外避免项"),
+    "执行边界：技法只服务指定场景与叙事目的，不得增加剧情义务；未选中的技法不必补齐，不得为了展示技巧强塞感官、通感或比喻。",
+  ].join("\n");
+}
+
 export function buildChapterWriterContextBlocks(
   writeContext: ChapterWriteContext,
   options: ChapterWriterBlockOptions = {},
@@ -311,6 +339,14 @@ export function buildChapterWriterContextBlocks(
         ),
         `章末追读钩子：${writeContext.readerExperience.endingHook}`,
       ].join("\n"),
+    }),
+    createContextBlock({
+      id: "craft_plan",
+      group: "craft_plan",
+      priority: 99,
+      required: true,
+      allowSummary: false,
+      content: buildChapterCraftPlanText(writeContext.scenePlan?.craftPlan),
     }),
     hasObligationContract
       ? createContextBlock({

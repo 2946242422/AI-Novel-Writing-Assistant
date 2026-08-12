@@ -55,10 +55,12 @@ function createSystemPrompt(mode: ChapterTaskSheetQualityPromptInput["mode"]): s
     : "当前是 AI 副驾或手动模式。你要指出是否需要用户确认，避免把不可靠合同静默同步到正文执行链。";
   return [
     "你是网文章节执行合同质量评估器。",
-    "你的任务是判断 purpose、章节边界、taskSheet、readerExperience 和 sceneCards 是否足以交给正文生成器执行。",
+    "你的任务是判断 purpose、章节边界、taskSheet、readerExperience、sceneCards 和其中保存的 craftPlan 是否足以交给正文生成器执行。",
     modeRule,
     "只评估当前章节合同，不扩写正文，不改写任务单。",
     "可用合同必须满足：本章目标清晰、边界不越章、任务单可执行、读者体验合同明确本章问题、可见回报、主角欲望、主要阻力、关键转折、净变化和钩子责任，场景卡覆盖整章推进并为每场提供阻力、转折、情绪位移和读者价值。",
+    "craftPlan 必须是基于本章职责作出的局部写法选择：允许不选技法，最多选择 3 项；每项必须绑定真实 scene key、说明叙事目的和执行方式，不得凭空增加剧情义务。",
+    "如果 craftPlan 强制凑感官数量、强行通感、堆叠比喻、让对白承担背景说明，或写法选择与场景任务无关，应标记 craft_plan 问题并给出收敛建议。",
     "readerExperience.rewardLevel 表示本章计划提供的可见回报强度，只能使用 setup、partial、major；它不是正文完成度、承诺兑现比例或事后结果评级。",
     "即使正文完整兑现了 promisedReward，也不要建议把 rewardLevel 改为 full、complete 或其他值；只有本章计划的回报强度本身与章节职责不匹配时，才建议在 setup、partial、major 之间调整。",
     "还要判断本章是否被塞入过多彼此争夺篇幅的必达义务；如果任务单显示当前章职责已经过载，loadRisk=overloaded，recommendedHandling=replan_window。",
@@ -72,7 +74,7 @@ function createSystemPrompt(mode: ChapterTaskSheetQualityPromptInput["mode"]): s
     "recommendedHandling 只能使用 use_as_is、repair_contract、replan_window。",
     "issues 每项只能包含 id、severity、target、summary、repairHint。",
     "issues.severity 只能使用 low、medium、high。",
-    "issues.target 只能使用 purpose、boundary、task_sheet、scene_cards、semantic；节奏、重复、职责过载、主动性不足、义务冲突都归入 semantic。",
+    "issues.target 只能使用 purpose、boundary、task_sheet、scene_cards、craft_plan、semantic；写法选择或技法过载归入 craft_plan，节奏、重复、职责过载、主动性不足、义务冲突归入 semantic。",
     "confidence 必须是 0 到 1 之间的小数，不要输出百分制数字。",
     "不得输出 pass、accepted、ok、blocked、pacing、plot、load 等自定义枚举值。",
     "",
@@ -103,7 +105,7 @@ export const chapterTaskSheetQualityPrompt: PromptAsset<
   AiChapterTaskSheetQualityAssessment
 > = {
   id: "novel.volume.chapter_task_sheet_quality",
-  version: "v2",
+  version: "v3",
   taskType: "review",
   mode: "structured",
   language: "zh",

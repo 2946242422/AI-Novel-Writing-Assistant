@@ -26,6 +26,7 @@ const CONTEXT_GROUP_LABELS: Record<string, string> = {
   previous_chapter_tail: "上一章结尾",
   rag_context: "检索补充",
   reader_experience: "读者体验合同",
+  craft_plan: "AI 自主写法方案",
   recent_chapters: "近期章节摘要",
   repair_boundaries: "修文范围约束",
   repair_issues: "修文问题清单",

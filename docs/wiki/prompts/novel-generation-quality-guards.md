@@ -85,6 +85,18 @@ keyMilestoneGuards: z.array(volumeKeyMilestoneGuardSchema).default([])
 
 **输出**：`repetitionClusters`、`openingPatternClusters`、`hasCriticalIssues` 和修复建议。
 
+### 八、AI 自主章节写法方案（`ChapterCraftPlan`）
+
+**字段**：章节场景计划新增 `craftPlan`，包括 `mode`、章节写法、选择理由、节奏策略、结尾策略、已选技法和重点避免项。`mode` 只能是 `none`、`focused`、`mixed`，分别对应 0、1、2-3 项技法。
+
+**选择规则**：章节执行合同模型基于任务、读者体验、人物关系、场景阻力、题材气质和近期重复风险自主选择。运行时不得使用关键词、正则或题材字符串做固定路由，也不得为了形式完整强制选满。
+
+**执行边界**：每项技法必须绑定当前场景 key，并说明目的、执行指导与强度。它是局部写法策略，不是新剧情义务；章节任务、人物硬事实、义务合同和章节边界优先。
+
+**质量闭环**：`craft_plan` 是正文、接收检查、审校和修复的 required context。质量链只检查已选技法是否自然达成目的以及 `avoid` 风险是否出现，未选技法不构成缺陷，`mode=none` 时不得要求补技巧。
+
+**兼容规则**：写法方案随场景计划保存，不新增数据库字段。旧章节缺少 `craftPlan` 时使用自然执行的安全默认值。
+
 ## 失效模式
 
 - `completedMilestones` 和 `recentScenePatterns` 依赖上游服务在构建上下文时正确填入，若上游不填，这两个守卫就不生效。本次修改只建立了接口契约，数据填充需要在章节运行时协调器中实现。
@@ -103,6 +115,8 @@ keyMilestoneGuards: z.array(volumeKeyMilestoneGuardSchema).default([])
 - `server/src/agents/tools/bookAnalysisTools.ts`（`audit_chapter_continuity`）
 - `server/src/prompting/prompts/novel/chapterLayeredContext.ts`
 - `server/src/prompting/prompts/novel/chapterWriter.prompts.ts`
+- `server/src/prompting/prompts/novel/volume/chapterDetail.prompts.ts`
+- `shared/types/novel/chapterCraft.ts`（`ChapterCraftPlan`、技法目录与兼容默认值）
 - `shared/types/chapterRuntime.ts`（`ChapterWriteContext`、`VolumeWindowContext`）
 
 ## 源文档

@@ -49,7 +49,7 @@ export interface ChapterExecutionContractQualityCandidate {
 export interface ChapterTaskSheetQualityIssue {
   id: string;
   severity: ChapterTaskSheetQualityIssueSeverity;
-  target: "purpose" | "boundary" | "task_sheet" | "scene_cards" | "semantic";
+  target: "purpose" | "boundary" | "task_sheet" | "scene_cards" | "craft_plan" | "semantic";
   summary: string;
   repairHint: string;
 }
@@ -97,6 +97,9 @@ function normalizeAssessmentIssueTarget(value: unknown): unknown {
   if (["scene", "scene_card", "scene_cards", "scenes", "scene_plan"].includes(normalized)) {
     return "scene_cards";
   }
+  if (["craft", "craft_plan", "writing_craft", "writing_strategy", "technique", "techniques"].includes(normalized)) {
+    return "craft_plan";
+  }
   if ([
     "plot",
     "pacing",
@@ -137,7 +140,7 @@ export const chapterTaskSheetQualityIssueSchema = z.object({
   severity: z.enum(CHAPTER_TASK_SHEET_QUALITY_ISSUE_SEVERITIES),
   target: z.preprocess(
     normalizeAssessmentIssueTarget,
-    z.enum(["purpose", "boundary", "task_sheet", "scene_cards", "semantic"]),
+    z.enum(["purpose", "boundary", "task_sheet", "scene_cards", "craft_plan", "semantic"]),
   ),
   summary: z.string().trim().min(1),
   repairHint: z.string().trim().min(1),

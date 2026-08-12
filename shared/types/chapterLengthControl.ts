@@ -6,6 +6,14 @@ import {
   normalizeReaderExperienceContract,
   readerExperienceContractSchema,
 } from "./novel/readerExperience.js";
+import {
+  EMPTY_CHAPTER_CRAFT_PLAN,
+  generatedChapterCraftPlanSchema,
+  normalizeChapterCraftPlan,
+  chapterCraftPlanSchema,
+} from "./novel/chapterCraft.js";
+
+export * from "./novel/chapterCraft.js";
 
 const SCENE_COUNT_MIN = 3;
 const SCENE_COUNT_MAX = 8;
@@ -45,11 +53,13 @@ export const chapterScenePlanSchema = z.object({
   lengthBudget: lengthBudgetContractSchema,
   scenes: z.array(chapterSceneCardSchema).min(SCENE_COUNT_MIN).max(SCENE_COUNT_MAX),
   readerExperience: readerExperienceContractSchema.default(EMPTY_READER_EXPERIENCE_CONTRACT),
+  craftPlan: chapterCraftPlanSchema.default(EMPTY_CHAPTER_CRAFT_PLAN),
 });
 
 export const generatedChapterScenePlanSchema = chapterScenePlanSchema.extend({
   scenes: z.array(generatedChapterSceneCardSchema).min(SCENE_COUNT_MIN).max(SCENE_COUNT_MAX),
   readerExperience: generatedReaderExperienceContractSchema,
+  craftPlan: generatedChapterCraftPlanSchema,
 });
 
 export type LengthBudgetContract = z.infer<typeof lengthBudgetContractSchema>;
@@ -292,6 +302,7 @@ export function normalizeChapterScenePlan(
     lengthBudget: budget,
     scenes: rescaleSceneTargets(budget.targetWordCount, boundedScenes),
     readerExperience: normalizeReaderExperienceContract(record?.readerExperience),
+    craftPlan: normalizeChapterCraftPlan(record?.craftPlan ?? record?.craft_plan),
   });
 }
 

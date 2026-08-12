@@ -40,7 +40,7 @@
 
 - 安全的基础编辑 slots，用于调整语气、节奏、段落、对话、描写、钩子和禁用倾向；
 - 高级 System / Human 模板编辑能力，支持作品范围、上下文 token、预览、测试、版本、回滚和恢复官方模板；
-- required context 保护，确保角色硬事实、任务、连续性、世界规则、平台写法和风格合同不能被模板静默移除；
+- required context 保护，确保角色硬事实、任务、连续性、世界规则、平台写法、AI 自主写法方案和风格合同不能被模板静默移除；
 - PromptAsset / catalog 能力声明，禁止在前端通过固定 Prompt ID 决定是否支持高级编辑。
 
 `PromptAsset.management` 是提示词管理能力的可信声明：
@@ -57,7 +57,7 @@
 - 使用 `family.capability` 风格的 `id`
 - `version` 使用 `v1`、`v2`
 - 示例：
-  - `audit.chapter.full@v2`
+  - `audit.chapter.full@v3`
   - `world.structure.generate@v1`
   - `style.recommendation@v1`
 

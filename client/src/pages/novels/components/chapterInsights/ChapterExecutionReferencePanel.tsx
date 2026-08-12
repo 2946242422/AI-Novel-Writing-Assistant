@@ -8,6 +8,7 @@ import type {
 } from "@ai-novel/shared/types/novel";
 import type { SSEFrame } from "@ai-novel/shared/types/api";
 import type { ChapterRuntimePackage } from "@ai-novel/shared/types/chapterRuntime";
+import { formatChapterCraftTechniqueLabel } from "@ai-novel/shared/types/novel/chapterCraft";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import StreamOutput from "@/components/common/StreamOutput";
@@ -165,6 +166,53 @@ export default function ChapterExecutionReferencePanel(props: ChapterExecutionRe
                   <MetricBadge label="章节目标" value={`${scenePlan.targetWordCount} 字`} />
                   <MetricBadge label="场景数" value={String(scenePlan.scenes.length)} />
                 </div>
+              </div>
+              <div className="rounded-2xl border bg-background p-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="text-sm font-semibold text-foreground">AI 自动写法方案</div>
+                  <Badge variant="secondary">
+                    {scenePlan.craftPlan.mode === "none"
+                      ? "自然执行"
+                      : scenePlan.craftPlan.mode === "focused"
+                        ? "单项聚焦"
+                        : "组合写法"}
+                  </Badge>
+                </div>
+                <div className="mt-2 text-sm leading-6 text-muted-foreground">
+                  {scenePlan.craftPlan.chapterApproach}
+                </div>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  <PanelHintCard title="选择依据" content={scenePlan.craftPlan.selectionRationale} />
+                  <PanelHintCard title="节奏策略" content={scenePlan.craftPlan.pacingStrategy} />
+                  <PanelHintCard title="结尾策略" content={scenePlan.craftPlan.endingStrategy} />
+                  <PanelHintCard
+                    title="重点避免"
+                    content={scenePlan.craftPlan.avoid.join("；") || "无额外限制。"}
+                  />
+                </div>
+                {scenePlan.craftPlan.selectedTechniques.length > 0 ? (
+                  <div className="mt-3 space-y-2">
+                    {scenePlan.craftPlan.selectedTechniques.map((technique) => (
+                      <div
+                        key={`${technique.type}-${technique.sceneKeys.join("-")}`}
+                        className="rounded-xl border border-border/70 bg-muted/20 p-3"
+                      >
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline">{formatChapterCraftTechniqueLabel(technique.type)}</Badge>
+                          <span className="text-xs text-muted-foreground">
+                            场景：{technique.sceneKeys.join("、")} · 强度：{technique.intensity}
+                          </span>
+                        </div>
+                        <div className="mt-2 text-sm leading-6 text-foreground">{technique.purpose}</div>
+                        <div className="mt-1 text-xs leading-5 text-muted-foreground">{technique.guidance}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="mt-3 text-xs leading-5 text-muted-foreground">
+                    本章不强制加入专门技法，正文按任务与场景变化自然推进。
+                  </div>
+                )}
               </div>
               {scenePlan.scenes.map((scene, index) => (
                 <div key={scene.key} className="rounded-2xl border bg-background p-4">

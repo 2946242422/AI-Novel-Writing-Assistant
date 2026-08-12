@@ -86,19 +86,22 @@ export function asRecord(value: unknown): Record<string, unknown> | null {
     : null;
 }
 
-export function parseSceneCards(value: string | null | undefined): Record<string, unknown>[] {
+export function parseScenePlanRecord(value: string | null | undefined): Record<string, unknown> | null {
   if (!value?.trim()) {
-    return [];
+    return null;
   }
   try {
-    const parsed = JSON.parse(value);
-    const scenes = asRecord(parsed)?.scenes;
-    return Array.isArray(scenes)
-      ? scenes.map(asRecord).filter((scene): scene is Record<string, unknown> => Boolean(scene))
-      : [];
+    return asRecord(JSON.parse(value));
   } catch {
-    return [];
+    return null;
   }
+}
+
+export function parseSceneCards(value: string | null | undefined): Record<string, unknown>[] {
+  const scenes = parseScenePlanRecord(value)?.scenes;
+  return Array.isArray(scenes)
+    ? scenes.map(asRecord).filter((scene): scene is Record<string, unknown> => Boolean(scene))
+    : [];
 }
 
 export function readString(value: unknown): string {

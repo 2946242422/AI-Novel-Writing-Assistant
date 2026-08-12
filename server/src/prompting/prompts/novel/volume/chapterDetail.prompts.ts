@@ -10,6 +10,10 @@ import {
 import { type VolumeChapterDetailPromptInput } from "./shared";
 import { buildVolumeChapterDetailContextBlocks } from "./contextBlocks";
 import { NOVEL_PROMPT_BUDGETS } from "../promptBudgetProfiles";
+import {
+  CHAPTER_CRAFT_TECHNIQUE_TYPES,
+  formatChapterCraftTechniqueLabel,
+} from "@ai-novel/shared/types/novel/chapterCraft";
 
 const TITLE_EVENT_ANCHOR_HINTS = [
   "激活",
@@ -31,6 +35,10 @@ const TITLE_EVENT_ANCHOR_HINTS = [
   "得手",
   "松动",
 ];
+
+const CHAPTER_CRAFT_TECHNIQUE_CATALOG = CHAPTER_CRAFT_TECHNIQUE_TYPES
+  .map((type) => `${type}（${formatChapterCraftTechniqueLabel(type)}）`)
+  .join("、");
 
 function normalizeComparableText(value: string | null | undefined): string {
   return value?.replace(/\s+/g, " ").trim() || "";
@@ -131,6 +139,12 @@ function validateBoundaryContract(
 
 function buildTaskSheetSemanticText(output: {
   taskSheet: string;
+  craftPlan: {
+    chapterApproach: string;
+    pacingStrategy: string;
+    endingStrategy: string;
+    selectedTechniques: Array<{ purpose: string; guidance: string }>;
+  };
   sceneCards: Array<{
     title: string;
     purpose: string;
@@ -142,6 +156,10 @@ function buildTaskSheetSemanticText(output: {
 }): string {
   return normalizeComparableText([
     output.taskSheet,
+    output.craftPlan.chapterApproach,
+    output.craftPlan.pacingStrategy,
+    output.craftPlan.endingStrategy,
+    ...output.craftPlan.selectedTechniques.flatMap((technique) => [technique.purpose, technique.guidance]),
     ...output.sceneCards.flatMap((scene) => [
       scene.title,
       scene.purpose,
@@ -154,8 +172,14 @@ function buildTaskSheetSemanticText(output: {
 }
 
 function validateAdjacentChapterBoundary<T extends {
-    taskSheet: string;
-    sceneCards: Array<{
+  taskSheet: string;
+  craftPlan: {
+    chapterApproach: string;
+    pacingStrategy: string;
+    endingStrategy: string;
+    selectedTechniques: Array<{ purpose: string; guidance: string }>;
+  };
+  sceneCards: Array<{
       title: string;
       purpose: string;
       entryState: string;
@@ -199,6 +223,33 @@ function validateAdjacentChapterBoundary<T extends {
   return output;
 }
 
+function validateCraftPlan<T extends {
+  craftPlan: {
+    mode: "none" | "focused" | "mixed";
+    selectedTechniques: Array<{ sceneKeys: string[] }>;
+  };
+  sceneCards: Array<{ key: string }>;
+}>(output: T): T {
+  const techniqueCount = output.craftPlan.selectedTechniques.length;
+  if (output.craftPlan.mode === "none" && techniqueCount !== 0) {
+    throw new Error("craftPlan.mode 为 none 时 selectedTechniques 必须为空。");
+  }
+  if (output.craftPlan.mode === "focused" && techniqueCount !== 1) {
+    throw new Error("craftPlan.mode 为 focused 时必须且只能选择 1 项写作技法。");
+  }
+  if (output.craftPlan.mode === "mixed" && (techniqueCount < 2 || techniqueCount > 3)) {
+    throw new Error("craftPlan.mode 为 mixed 时必须选择 2-3 项写作技法。");
+  }
+  const sceneKeys = new Set(output.sceneCards.map((scene) => scene.key));
+  const unknownSceneKey = output.craftPlan.selectedTechniques
+    .flatMap((technique) => technique.sceneKeys)
+    .find((sceneKey) => !sceneKeys.has(sceneKey));
+  if (unknownSceneKey) {
+    throw new Error(`craftPlan 引用了不存在的场景 key：${unknownSceneKey}。`);
+  }
+  return output;
+}
+
 function createVolumeDetailSystemPrompt(detailMode: VolumeChapterDetailPromptInput["detailMode"]): string {
   if (detailMode === "purpose") {
     return [
@@ -224,7 +275,7 @@ function createVolumeDetailSystemPrompt(detailMode: VolumeChapterDetailPromptInp
   return [
     "你是资深网文章节编辑。",
     "当前任务是生成可直接交给正文生成器的章节执行合同。",
-    "只输出严格 JSON，且只包含 taskSheet、readerExperience、sceneCards 三个字段。",
+    "只输出严格 JSON，且只包含 taskSheet、readerExperience、sceneCards、craftPlan 四个字段。",
     "taskSheet 是给用户读的简洁执行摘要，需要覆盖情绪基调、冲突对象、关键推进和收尾要求。",
     "readerExperience 是本章唯一的读者体验合同，必须包含 readerQuestion、promisedReward、rewardLevel、protagonistWant、primaryResistance、keyTurn、emotionalShift、informationReveal、netChange、inheritedHookResponsibilities、endingHook。",
     "rewardLevel 只能是 setup、partial、major；由本章在卷节奏中的职责决定，不要每章都写成 major。",
@@ -233,6 +284,14 @@ function createVolumeDetailSystemPrompt(detailMode: VolumeChapterDetailPromptInp
     "sceneCards 必须是 3-8 个场景卡数组，每个场景卡都必须包含 key、title、purpose、mustAdvance、mustPreserve、entryState、exitState、forbiddenExpansion、targetWordCount、resistance、turn、emotionalShift、readerValue。",
     "每个场景都必须有具体阻力和转折；readerValue 要说明该场景给读者带来的推进、揭示、情绪或关系价值。",
     "sceneCards 必须完整覆盖整章推进和结尾 hook，不要把整章压成一个场景。",
+    "craftPlan 由你根据章节任务、读者体验、人物关系、场景阻力、题材气质和最近章节重复风险自主决定，不由关键词或固定模板匹配。",
+    "craftPlan 必须包含 mode、chapterApproach、selectionRationale、pacingStrategy、endingStrategy、selectedTechniques、avoid。",
+    "mode 只能是 none、focused、mixed：普通过渡章可以选 none；只需一种核心技法时选 focused；确有复合场景需求时才选 mixed。",
+    `selectedTechniques 最多 3 项，type 只能使用：${CHAPTER_CRAFT_TECHNIQUE_CATALOG}。`,
+    "每项技法必须包含 type、sceneKeys、purpose、guidance、intensity；sceneKeys 只能引用本次 sceneCards 中真实存在的 key。",
+    "技法是局部写法策略，不得增加新剧情义务，也不得要求每章固定凑够感官数量、比喻、通感或心理独白。",
+    "对话冲突可选潜台词或权力变化；调查推理可选证据链；异常显现可选感官锚点；心理内容优先外化为行为与细节。只有符合本章职责时才选择，不能机械套用。",
+    "avoid 应记录本章最容易出现的 1-4 个表达风险，例如解释性对白、无效比喻堆叠、证据推理失真、道具位置不连续；不得写成通用口号清单。",
     "当前章节的 title、summary、purpose、exclusiveEvent、endingState、nextChapterEntryState、conflictLevel、revealLevel、mustAvoid、payoffRefs 共同组成了本章硬边界合同。taskSheet 和 sceneCards 只能执行当前章合同，不能改写或覆盖它。",
     "你必须把 chapter_neighbors 视为相邻章边界提示：上一章已经完成的关键首次事件不能在本章重写一次，下一章标题或摘要中的关键首次事件也不能提前写进本章。",
     "本章结尾只能把局面推到下一章入口，不能直接落完下一章标题所承诺的核心里程碑。",
@@ -263,13 +322,19 @@ function createExecutionContractSystemPrompt(): string {
   return [
     "你是资深网文章节编辑。",
     "当前任务是一次性生成可直接交给写作器的章节执行合同。",
-    "只输出严格 JSON，必须同时包含 purpose、exclusiveEvent、endingState、nextChapterEntryState、conflictLevel、revealLevel、targetWordCount、mustAvoid、payoffRefs、taskSheet、readerExperience、sceneCards。",
+    "只输出严格 JSON，必须同时包含 purpose、exclusiveEvent、endingState、nextChapterEntryState、conflictLevel、revealLevel、targetWordCount、mustAvoid、payoffRefs、taskSheet、readerExperience、sceneCards、craftPlan。",
     "purpose 用一句话说明本章到底要推进什么，不要写成摘要复述。",
     "exclusiveEvent / endingState / nextChapterEntryState 等字段不可缺失，它们是章节的硬边界合同。",
     "taskSheet 是给正文写作器的简洁执行指令，sceneCards 是 3-8 个场景卡的执行拆解。",
     "readerExperience 是本章唯一的读者体验合同，必须完整包含 readerQuestion、promisedReward、rewardLevel、protagonistWant、primaryResistance、keyTurn、emotionalShift、informationReveal、netChange、inheritedHookResponsibilities、endingHook。",
     "rewardLevel 只能使用 setup、partial、major；promisedReward 和 netChange 必须能在正文中被读者直接感知。",
     "sceneCards 除原字段外还必须包含 resistance、turn、emotionalShift、readerValue，确保每个场景都有阻力、转折和读者价值。",
+    "craftPlan 是 AI 自主选择的本章写法方案，必须包含 mode、chapterApproach、selectionRationale、pacingStrategy、endingStrategy、selectedTechniques、avoid。",
+    "mode 只能是 none、focused、mixed；selectedTechniques 最多 3 项，允许 none + 空数组，禁止为了显得文艺而强行选满。",
+    `selectedTechniques.type 只能使用：${CHAPTER_CRAFT_TECHNIQUE_CATALOG}。`,
+    "每项技法必须绑定 sceneCards 中真实存在的 sceneKeys，并说明叙事目的、具体执行方式和 low/medium/high 强度；技法不得创造新的剧情义务。",
+    "优先选择能服务本章冲突与信息变化的局部技法；禁止固定要求三种感官、强制通感、比喻配额或把角色对白写成背景说明。",
+    "avoid 写出本章最需要防止的表达与逻辑风险，包括但不限于解释性对白、证据链失真、道具位置漂移、无效修辞堆叠。",
     "taskSheet 和 sceneCards 只能执行当前章的合同，不得提前占用相邻章的一次性事件，也不得重写上一章已经完成的里程碑。",
     "如果 conflict_level_curve 标出用户锚定的 conflictLevel，该数值是硬约束，不得改写。",
     "如果最近章节已经连续使用相同开场、相同推进路数或同类钩子，本章必须通过 sceneCards 主动做出差异化。",
@@ -339,7 +404,7 @@ export const volumeChapterTaskSheetPrompt: PromptAsset<
   ReturnType<typeof createChapterTaskSheetSchema>["_output"]
 > = {
   id: "novel.volume.chapter_task_sheet",
-  version: "v3",
+  version: "v4",
   taskType: "planner",
   mode: "structured",
   language: "zh",
@@ -352,7 +417,11 @@ export const volumeChapterTaskSheetPrompt: PromptAsset<
     new SystemMessage(createVolumeDetailSystemPrompt("task_sheet")),
     new HumanMessage(buildChapterDetailPrompt(renderSelectedContextBlocks(context), input.detailMode)),
   ],
-  postValidate: (output, input) => validateAdjacentChapterBoundary(output, input),
+  postValidate: (output, input) => {
+    validateAdjacentChapterBoundary(output, input);
+    validateCraftPlan(output);
+    return output;
+  },
 };
 
 export const volumeChapterExecutionContractPrompt: PromptAsset<
@@ -360,7 +429,7 @@ export const volumeChapterExecutionContractPrompt: PromptAsset<
   ReturnType<typeof createChapterExecutionContractSchema>["_output"]
 > = {
   id: "novel.volume.chapter_execution_contract",
-  version: "v3",
+  version: "v4",
   taskType: "planner",
   mode: "structured",
   language: "zh",
@@ -376,6 +445,7 @@ export const volumeChapterExecutionContractPrompt: PromptAsset<
   postValidate: (output, input) => {
     validateBoundaryContract(output, input);
     validateAdjacentChapterBoundary(output, input);
+    validateCraftPlan(output);
     return output;
   },
 };

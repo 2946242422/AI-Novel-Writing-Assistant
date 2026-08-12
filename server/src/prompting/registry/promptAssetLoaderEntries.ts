@@ -62,11 +62,11 @@ export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
     load: () => require("../prompts/agent/runtime.prompts").runtimeSetupIdeationPrompt as UnknownPromptAsset,
   },
   {
-    key: "audit.chapter.full@v2",
+    key: "audit.chapter.full@v3",
     load: () => require("../prompts/audit/audit.prompts").auditChapterPrompt as UnknownPromptAsset,
   },
   {
-    key: "audit.chapter.light@v1",
+    key: "audit.chapter.light@v2",
     load: () => require("../prompts/audit/audit.prompts").auditChapterLightPrompt as UnknownPromptAsset,
   },
   {
@@ -278,7 +278,7 @@ export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
     load: () => require("../prompts/novel/coreGeneration.prompts").novelChapterHookPrompt as UnknownPromptAsset,
   },
   {
-    key: "novel.chapter.acceptance_assessment@v2",
+    key: "novel.chapter.acceptance_assessment@v3",
     load: () => require("../prompts/novel/chapterAcceptance.prompts").chapterAcceptanceAssessmentPrompt as UnknownPromptAsset,
   },
   {
@@ -334,15 +334,15 @@ export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
     load: () => require("../prompts/novel/volume/chapterDetail.prompts").volumeChapterBoundaryPrompt as UnknownPromptAsset,
   },
   {
-    key: "novel.volume.chapter_task_sheet@v3",
+    key: "novel.volume.chapter_task_sheet@v4",
     load: () => require("../prompts/novel/volume/chapterDetail.prompts").volumeChapterTaskSheetPrompt as UnknownPromptAsset,
   },
   {
-    key: "novel.volume.chapter_execution_contract@v3",
+    key: "novel.volume.chapter_execution_contract@v4",
     load: () => require("../prompts/novel/volume/chapterDetail.prompts").volumeChapterExecutionContractPrompt as UnknownPromptAsset,
   },
   {
-    key: "novel.volume.chapter_task_sheet_quality@v2",
+    key: "novel.volume.chapter_task_sheet_quality@v3",
     load: () => require("../prompts/novel/volume/chapterTaskSheetQuality.prompts").chapterTaskSheetQualityPrompt as UnknownPromptAsset,
   },
   {
@@ -418,7 +418,7 @@ export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
     load: () => require("../prompts/novel/review.prompts").chapterSummaryPrompt as UnknownPromptAsset,
   },
   {
-    key: "novel.chapter.writer@v6",
+    key: "novel.chapter.writer@v7",
     load: () => require("../prompts/novel/chapterWriter.prompts").chapterWriterPrompt as UnknownPromptAsset,
   },
   {
@@ -438,11 +438,11 @@ export const promptAssetLoaderEntries: PromptAssetLoaderEntry[] = [
     load: () => require("../prompts/novel/chapterEditor/rewriteCandidates.prompts").chapterEditorRewriteCandidatesPrompt as UnknownPromptAsset,
   },
   {
-    key: "novel.review.chapter@v2",
+    key: "novel.review.chapter@v3",
     load: () => require("../prompts/novel/review.prompts").chapterReviewPrompt as UnknownPromptAsset,
   },
   {
-    key: "novel.review.repair@v2",
+    key: "novel.review.repair@v3",
     load: () => require("../prompts/novel/review.prompts").chapterRepairPrompt as UnknownPromptAsset,
   },
   {

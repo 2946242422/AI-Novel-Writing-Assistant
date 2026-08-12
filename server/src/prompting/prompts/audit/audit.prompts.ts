@@ -74,7 +74,7 @@ export interface AuditChapterPromptInput {
 
 export const auditChapterLightPrompt: PromptAsset<AuditChapterPromptInput, z.infer<typeof lightAuditOutputSchema>> = {
   id: "audit.chapter.light",
-  version: "v1",
+  version: "v2",
   taskType: "light_review",
   mode: "structured",
   language: "zh",
@@ -83,6 +83,7 @@ export const auditChapterLightPrompt: PromptAsset<AuditChapterPromptInput, z.inf
     preferredGroups: [
       "chapter_boundary",
       "chapter_mission",
+      "craft_plan",
       "structure_obligations",
       "local_state",
     ],
@@ -96,6 +97,7 @@ export const auditChapterLightPrompt: PromptAsset<AuditChapterPromptInput, z.inf
   contextRequirements: [
     { group: "chapter_mission", priority: 100 },
     { group: "chapter_boundary", required: true, priority: 99 },
+    { group: "craft_plan", required: true, priority: 98 },
     { group: "structure_obligations", priority: 94 },
     { group: "local_state", priority: 89 },
     { group: "world_rules", priority: 84 },
@@ -144,6 +146,7 @@ export const auditChapterLightPrompt: PromptAsset<AuditChapterPromptInput, z.inf
       "3. issues 报告要求：" + reportStyle,
       "4. continueRecommendation 只能是 continue、suggest_repair、full_audit。",
       "5. shouldRunFullAudit 只有在确实需要完整重审校时才设为 true。",
+      "6. craft_plan 只用于检查选中技法是否自然服务目标、avoid 风险是否出现；不得要求补齐未选技法，mode=none 时不得因技巧少而升级审校。",
     ].join("\n")),
     new HumanMessage([
       `小说：${input.novelTitle}`,
@@ -168,7 +171,7 @@ export const auditChapterLightPrompt: PromptAsset<AuditChapterPromptInput, z.inf
 
 export const auditChapterPrompt: PromptAsset<AuditChapterPromptInput, z.infer<typeof fullAuditOutputSchema>> = {
   id: "audit.chapter.full",
-  version: "v2",
+  version: "v3",
   taskType: "critical_review",
   mode: "structured",
   language: "zh",
@@ -177,6 +180,7 @@ export const auditChapterPrompt: PromptAsset<AuditChapterPromptInput, z.infer<ty
     preferredGroups: [
       "chapter_boundary",
       "chapter_mission",
+      "craft_plan",
       "structure_obligations",
       "world_rules",
       "historical_issues",
@@ -190,6 +194,7 @@ export const auditChapterPrompt: PromptAsset<AuditChapterPromptInput, z.infer<ty
   contextRequirements: [
     { group: "chapter_mission", priority: 100 },
     { group: "chapter_boundary", required: true, priority: 99 },
+    { group: "craft_plan", required: true, priority: 98 },
     { group: "structure_obligations", required: true, priority: 94 },
     { group: "local_state", priority: 89 },
     { group: "world_rules", priority: 84 },
@@ -254,6 +259,8 @@ export const auditChapterPrompt: PromptAsset<AuditChapterPromptInput, z.infer<ty
       "2. " + reportStyle,
       "3. score、issues、auditReports 三部分必须彼此一致，不能互相矛盾。",
       "4. requestedTypes 中要求的类型必须全部覆盖；即使问题不明显，也要给出简短结论。",
+      "5. craft_plan 不是新增剧情义务：只检查选中技法是否在目标场景服务其目的、是否发生 avoid 风险。未选中的技法不构成缺陷，mode=none 时不得要求补技巧。",
+      "6. 对解释性对白、装饰性比喻堆叠、强行通感、感官罗列、证据推理失真或道具位置漂移，必须引用正文中的具体可观察证据。",
       "",
       "评分维度：",
       "1. coherence：连贯性、因果与信息自洽。",

@@ -3,6 +3,7 @@ import { createContextBlock } from "../core/contextBudget";
 import {
   compactPreviewText,
   parseSceneCards,
+  parseScenePlanRecord,
   previewListBlock,
   readString,
   readStringList,
@@ -10,12 +11,14 @@ import {
   type PreviewChapterRow,
   type PreviewNovelRow,
 } from "./previewContextSupport";
+import { buildChapterCraftPlanText } from "../prompts/novel/context/chapterContextBlocks";
 
 export function buildChapterPreviewBlocks(input: {
   novel: PreviewNovelRow;
   chapter: PreviewChapterRow;
 }): PromptContextBlock[] {
   const { chapter, novel } = input;
+  const scenePlan = parseScenePlanRecord(chapter.sceneCards);
   const scenes = parseSceneCards(chapter.sceneCards);
   const firstScene = scenes[0] ?? null;
   const lastScene = scenes[scenes.length - 1] ?? null;
@@ -58,6 +61,14 @@ export function buildChapterPreviewBlocks(input: {
         ]),
         previewListBlock("Protected reveals", []),
       ].filter(Boolean).join("\n"),
+    }),
+    createContextBlock({
+      id: "craft_plan",
+      group: "craft_plan",
+      priority: 98,
+      required: true,
+      allowSummary: false,
+      content: buildChapterCraftPlanText(scenePlan?.craftPlan ?? scenePlan?.craft_plan),
     }),
     createContextBlock({
       id: "structure_obligations",

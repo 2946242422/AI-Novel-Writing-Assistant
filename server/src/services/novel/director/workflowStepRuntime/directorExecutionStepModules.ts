@@ -606,14 +606,14 @@ export const DIRECTOR_EXECUTION_STEP_MODULES: Record<
     id: DIRECTOR_EXECUTION_STEP_IDS.chapter_execution,
     stage: "chapter_execution",
     adapter: getDirectorExecutionNodeAdapter("chapter_execution"),
-    promptAssets: [{ id: "novel.chapter.writer", version: "v5" }],
+    promptAssets: [{ id: "novel.chapter.writer", version: "v7" }],
   })),
   chapter_quality_review: createFactOnlyExecutionModule({
     descriptor: createWorkflowStepDescriptorFromDirectorAdapter({
       id: DIRECTOR_EXECUTION_STEP_IDS.chapter_quality_review,
       stage: "quality_repair",
       adapter: getDirectorExecutionNodeAdapter("chapter_quality_review"),
-      promptAssets: [{ id: "audit.chapter.full", version: "v2" }],
+      promptAssets: [{ id: "audit.chapter.full", version: "v3" }],
     }),
     inspectFacts: async (context) => {
       const progress = await inspectScopedChapterExecutionProgress(context);

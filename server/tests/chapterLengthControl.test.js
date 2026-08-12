@@ -12,6 +12,9 @@ const {
   EMPTY_READER_EXPERIENCE_CONTRACT,
   generatedReaderExperienceContractSchema,
 } = require("../../shared/dist/types/novel/readerExperience.js");
+const {
+  generatedChapterCraftPlanSchema,
+} = require("../../shared/dist/types/novel/chapterCraft.js");
 
 test("chapter length control normalizes scene targets to the chapter target budget", () => {
   const plan = normalizeChapterScenePlan({
@@ -57,6 +60,7 @@ test("chapter length control normalizes scene targets to the chapter target budg
   assert.equal(plan.lengthBudget.hardMaxWordCount, 4375);
   assert.equal(plan.scenes.reduce((sum, scene) => sum + scene.targetWordCount, 0), 3500);
   assert.deepEqual(plan.readerExperience, EMPTY_READER_EXPERIENCE_CONTRACT);
+  assert.equal(plan.craftPlan.mode, "none");
   assert.equal(plan.scenes[0].resistance, "");
 });
 
@@ -84,6 +88,30 @@ test("chapter length control serializer preserves canonical scene plan shape", (
       netChange: "主角拿到反压入口，敌方被迫调整封锁。",
       inheritedHookResponsibilities: ["回应上一章留下的维修通道钥匙"],
       endingHook: "内应发现记录暴露并准备灭口。",
+    },
+    craftPlan: {
+      mode: "mixed",
+      chapterApproach: "以调查证据链推进，并在尾段转成迫近威胁。",
+      selectionRationale: "本章同时承担调查兑现和行动钩子。",
+      pacingStrategy: "前段递进核验，中段反压，尾段骤紧。",
+      endingStrategy: "用敌人准备灭口的具体行动收束。",
+      selectedTechniques: [
+        {
+          type: "evidence_chain",
+          sceneKeys: ["scene_1", "scene_2"],
+          purpose: "让主角的反压建立在可信证据上。",
+          guidance: "通过记录差异和行动结果逐层确认，不用旁白直接宣布答案。",
+          intensity: "high",
+        },
+        {
+          type: "concrete_hook",
+          sceneKeys: ["scene_3"],
+          purpose: "把下一章压力落成具体行动。",
+          guidance: "让内应开始清除证据，不使用抽象危险总结。",
+          intensity: "medium",
+        },
+      ],
+      avoid: ["不要用无法成立的鉴定方法证明身份。"],
     },
     scenes: [
       {
@@ -139,6 +167,7 @@ test("chapter length control serializer preserves canonical scene plan shape", (
   assert.equal(parsed.lengthBudget.softMaxWordCount, 3450);
   assert.equal(parsed.scenes.length, 3);
   assert.equal(parsed.readerExperience.promisedReward, "主角完成第一次可见反压。");
+  assert.equal(parsed.craftPlan.selectedTechniques[0].type, "evidence_chain");
   assert.equal(parsed.scenes[1].turn, "主角反向锁定内应。");
 });
 
@@ -155,6 +184,23 @@ test("new reader experience generation schema rejects incomplete AI contracts", 
     ],
   }, 2400);
   assert.equal(generatedChapterScenePlanSchema.safeParse(legacyPlan).success, false);
+});
+
+test("generated chapter craft plan requires explicit technique intensity", () => {
+  assert.equal(generatedChapterCraftPlanSchema.safeParse({
+    mode: "focused",
+    chapterApproach: "用证据链完成本章调查推进。",
+    selectionRationale: "调查章需要让线索推理可验证。",
+    pacingStrategy: "逐步缩短验证间隔。",
+    endingStrategy: "用证据指向的具体行动收尾。",
+    selectedTechniques: [{
+      type: "evidence_chain",
+      sceneKeys: ["scene_1"],
+      purpose: "让结论来自可核对线索。",
+      guidance: "展示两条互相印证的细节。",
+    }],
+    avoid: ["不要用旁白直接宣布答案。"],
+  }).success, false);
 });
 
 test("chapter length control filters system audit labels from mustAdvance", () => {

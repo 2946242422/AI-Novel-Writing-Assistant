@@ -94,7 +94,7 @@ export const chapterReviewPrompt: PromptAsset<
   z.infer<typeof fullAuditOutputSchema>
 > = {
   id: "novel.review.chapter",
-  version: "v2",
+  version: "v3",
   taskType: "critical_review",
   mode: "structured",
   language: "zh",
@@ -103,6 +103,7 @@ export const chapterReviewPrompt: PromptAsset<
     preferredGroups: [
       "chapter_mission",
       "reader_experience",
+      "craft_plan",
       "structure_obligations",
       "world_rules",
     ],
@@ -134,6 +135,7 @@ export const chapterReviewPrompt: PromptAsset<
       "4. voice：文风、叙述口吻、人物表达是否稳定且适配当前内容。",
       "5. engagement：是否具有持续阅读动力，结尾钩子、冲突推进与信息揭示是否有效。",
       "6. overall：综合质量判断，应反映本章是否达到可发布或需重点修整的水平。",
+      "7. craft_plan：只检查 AI 已选技法是否在目标场景自然达成其叙事目的，以及 avoid 风险是否出现；未选中的技法不构成缺陷，mode=none 时不得要求补技巧。",
       "",
       "【issues 要求】",
       "1. issues 必须只抓真正影响阅读与连载质量的问题，避免吹毛求疵式碎问题泛滥。",
@@ -150,6 +152,7 @@ export const chapterReviewPrompt: PromptAsset<
       "1. 重点关注：是否完成本章任务、是否有新推进、是否存在明显冗余、是否留下有效钩子。",
       "2. 同类问题不要拆成多条近义 issue。",
       "3. 审查结果应服务后续修文，既要指出问题，也要保留本章已经有效的部分。",
+      "4. 对解释性对白、无效比喻堆叠、强行通感、感官罗列、证据推理失真和道具位置漂移给出具体证据，但不要把个人审美偏好伪装成硬性问题。",
     ].join("\n")),
     new HumanMessage([
       `小说：${input.novelTitle}`,
@@ -171,7 +174,7 @@ export const chapterReviewPrompt: PromptAsset<
 
 export const chapterRepairPrompt: PromptAsset<ChapterRepairPromptInput, string, string> = {
   id: "novel.review.repair",
-  version: "v2",
+  version: "v3",
   taskType: "repair",
   mode: "text",
   language: "zh",
@@ -182,6 +185,7 @@ export const chapterRepairPrompt: PromptAsset<ChapterRepairPromptInput, string, 
       "chapter_boundary",
       "chapter_mission",
       "reader_experience",
+      "craft_plan",
       "repair_boundaries",
       "world_rules",
     ],
@@ -217,6 +221,7 @@ export const chapterRepairPrompt: PromptAsset<ChapterRepairPromptInput, string, 
       "1. 优先修复 issuesJson 中明确指出的关键问题。",
       "2. 优先保证 chapter_mission、repair_boundaries、world_rules 的约束被满足。",
       "2a. 同时保留 reader_experience 中已经兑现的读者价值，并定向补齐 promisedReward、主角主动性、关键转折、净变化或旧钩子承接缺口。",
+      "2b. craft_plan 只约束其中明确选中的局部技法。保留已经有效的写法效果，并针对审校指出的失真或过量做最小修复；不得补写未选技法，mode=none 时保持克制。",
       "3. 保留原章已经有效的推进、情绪、细节与角色状态，不要把有用内容一起洗掉。",
       "4. 若多个问题冲突，优先修复影响主线推进、逻辑连贯和阅读节奏的问题。",
       "",

@@ -51,6 +51,21 @@ test("chapter execution contract requires reader experience and scene experience
   assert.equal(schema.safeParse(base).success, false);
   assert.equal(schema.safeParse({
     ...base,
+    craftPlan: {
+      mode: "focused",
+      chapterApproach: "用证据链支撑主角的第一次反压。",
+      selectionRationale: "本章核心是把发现转成可信行动。",
+      pacingStrategy: "前段核验，中段反压，尾段抬升压力。",
+      endingStrategy: "以敌方启动反扑的具体行动收束。",
+      selectedTechniques: [{
+        type: "evidence_chain",
+        sceneKeys: ["scene_1", "scene_2"],
+        purpose: "让反压建立在可核验线索上。",
+        guidance: "逐步展示记录差异、验证动作和结论，不直接宣布答案。",
+        intensity: "medium",
+      }],
+      avoid: ["不要使用无法成立的证据鉴定。"],
+    },
     readerExperience: {
       readerQuestion: "主角能否完成第一次反压？",
       promisedReward: "主角拿到第一次可见主动权。",

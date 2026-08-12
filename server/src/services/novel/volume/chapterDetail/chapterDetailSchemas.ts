@@ -1,5 +1,9 @@
 import { z } from "zod";
 import { generatedChapterSceneCardSchema } from "@ai-novel/shared/types/chapterLengthControl";
+import {
+  generatedChapterCraftTechniqueSchema,
+  generatedChapterCraftPlanSchema,
+} from "@ai-novel/shared/types/novel/chapterCraft";
 import { generatedReaderExperienceContractSchema } from "@ai-novel/shared/types/novel/readerExperience";
 
 const conciseRequiredText = z.string().trim().min(1).max(240);
@@ -29,6 +33,19 @@ const boundedSceneCardSchema = generatedChapterSceneCardSchema.extend({
   turn: conciseRequiredText,
   emotionalShift: conciseRequiredText,
   readerValue: conciseRequiredText,
+});
+const boundedCraftTechniqueSchema = generatedChapterCraftTechniqueSchema.extend({
+  sceneKeys: z.array(z.string().trim().min(1).max(48)).min(1).max(3),
+  purpose: conciseRequiredText,
+  guidance: conciseRequiredText,
+});
+const boundedCraftPlanSchema = generatedChapterCraftPlanSchema.extend({
+  chapterApproach: conciseRequiredText,
+  selectionRationale: conciseRequiredText,
+  pacingStrategy: conciseRequiredText,
+  endingStrategy: conciseRequiredText,
+  selectedTechniques: z.array(boundedCraftTechniqueSchema).max(3),
+  avoid: conciseTextList,
 });
 
 function normalizeObjectAlias(raw: unknown, aliasMap: Record<string, string[]>): unknown {
@@ -105,11 +122,53 @@ function normalizeSceneCardPayload(raw: unknown): unknown {
   };
 }
 
+function normalizeCraftTechniquePayload(raw: unknown): unknown {
+  const normalized = normalizeObjectAlias(raw, {
+    type: ["technique", "kind", "技法"],
+    sceneKeys: ["scene_keys", "targetScenes", "targets", "目标场景"],
+    purpose: ["objective", "reason", "叙事目的"],
+    guidance: ["instruction", "execution", "执行指导"],
+    intensity: ["strength", "强度"],
+  });
+  if (!normalized || typeof normalized !== "object" || Array.isArray(normalized)) {
+    return normalized;
+  }
+  const record = normalized as Record<string, unknown>;
+  return {
+    ...record,
+    sceneKeys: normalizeStringArray(record.sceneKeys),
+  };
+}
+
+function normalizeCraftPlanPayload(raw: unknown): unknown {
+  const normalized = normalizeObjectAlias(raw, {
+    mode: ["strategyMode", "strategy_mode", "方案模式"],
+    chapterApproach: ["chapter_approach", "approach", "章节写法"],
+    selectionRationale: ["selection_rationale", "rationale", "选择理由"],
+    pacingStrategy: ["pacing_strategy", "pacing", "节奏策略"],
+    endingStrategy: ["ending_strategy", "ending", "结尾策略"],
+    selectedTechniques: ["selected_techniques", "techniques", "写作技法"],
+    avoid: ["avoidList", "avoid_list", "避免事项"],
+  });
+  if (!normalized || typeof normalized !== "object" || Array.isArray(normalized)) {
+    return normalized;
+  }
+  const record = normalized as Record<string, unknown>;
+  return {
+    ...record,
+    selectedTechniques: Array.isArray(record.selectedTechniques)
+      ? record.selectedTechniques.map((item) => normalizeCraftTechniquePayload(item))
+      : record.selectedTechniques,
+    avoid: normalizeStringArray(record.avoid),
+  };
+}
+
 function normalizeScenePlanPayload(raw: unknown): unknown {
   const normalized = normalizeObjectAlias(raw, {
     taskSheet: ["任务单", "task_sheet", "writingTask", "执行任务单"],
     sceneCards: ["scenePlan", "scenes", "scene_cards", "sceneCardList"],
     readerExperience: ["readerExperienceContract", "reader_experience", "读者体验合同"],
+    craftPlan: ["craft_plan", "writingCraftPlan", "writing_strategy", "写法方案"],
   });
   if (!normalized || typeof normalized !== "object" || Array.isArray(normalized)) {
     return normalized;
@@ -120,6 +179,7 @@ function normalizeScenePlanPayload(raw: unknown): unknown {
     sceneCards: Array.isArray(record.sceneCards)
       ? record.sceneCards.map((item) => normalizeSceneCardPayload(item))
       : record.sceneCards,
+    craftPlan: normalizeCraftPlanPayload(record.craftPlan),
   };
 }
 
@@ -179,6 +239,7 @@ export function createChapterTaskSheetSchema() {
     taskSheet: z.string().trim().min(1).max(600),
     readerExperience: boundedReaderExperienceSchema,
     sceneCards: z.array(z.preprocess(normalizeSceneCardPayload, boundedSceneCardSchema)).min(3).max(8),
+    craftPlan: z.preprocess(normalizeCraftPlanPayload, boundedCraftPlanSchema),
   }));
 }
 
@@ -200,6 +261,7 @@ export function createChapterExecutionContractSchema() {
       taskSheet: z.string().trim().min(1).max(600),
       readerExperience: boundedReaderExperienceSchema,
       sceneCards: z.array(z.preprocess(normalizeSceneCardPayload, boundedSceneCardSchema)).min(3).max(8),
+      craftPlan: z.preprocess(normalizeCraftPlanPayload, boundedCraftPlanSchema),
     }),
   );
 }

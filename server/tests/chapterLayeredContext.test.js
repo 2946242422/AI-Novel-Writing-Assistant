@@ -79,6 +79,30 @@ function createContextPackage() {
           inheritedHookResponsibilities: ["回应第四章尾段的维修通道钥匙和女二暗号"],
           endingHook: "幕后势力察觉漏洞暴露并启动反扑。",
         },
+        craftPlan: {
+          mode: "mixed",
+          chapterApproach: "以线索核验建立反压，再用具体行动钩子收束。",
+          selectionRationale: "本章需要同时保证调查可信度和章末追读力。",
+          pacingStrategy: "前段逐层核验，中段反压落地，尾段骤紧。",
+          endingStrategy: "让幕后势力启动反扑行动，不使用抽象危险总结。",
+          selectedTechniques: [
+            {
+              type: "evidence_chain",
+              sceneKeys: ["scene_1", "scene_2"],
+              purpose: "让主角通过职业能力确认反压入口。",
+              guidance: "用维修记录差异和交叉验证推动结论。",
+              intensity: "high",
+            },
+            {
+              type: "concrete_hook",
+              sceneKeys: ["scene_3"],
+              purpose: "把下一章压力落成可见行动。",
+              guidance: "让敌方开始封锁漏洞并逼近主角。",
+              intensity: "medium",
+            },
+          ],
+          avoid: ["不要让人物用对白解释全部背景。"],
+        },
         scenes: [
           {
             key: "scene_1",
@@ -736,6 +760,7 @@ test("chapter layered contexts carry volume mission, character duties and repair
   assert.equal(writeContext.lengthBudget.targetWordCount, 3000);
   assert.equal(writeContext.scenePlan.scenes.length, 3);
   assert.equal(writeContext.scenePlan.scenes[1].title, "第一次反压");
+  assert.equal(writeContext.scenePlan.craftPlan.mode, "mixed");
   assert.equal(writeContext.readerExperience.rewardLevel, "partial");
   assert.match(writeContext.readerExperience.promisedReward, /第一次可见主动权/);
   assert.ok(writeContext.chapterStateGoal.summary.includes("visible gain"));
@@ -770,6 +795,12 @@ test("chapter layered contexts carry volume mission, character duties and repair
     assert.match(readerExperienceBlocks[0].content, /第一次可见主动权/);
     assert.match(readerExperienceBlocks[0].content, /维修通道钥匙和女二暗号/);
     assert.match(readerExperienceBlocks[0].content, /幕后势力察觉漏洞暴露/);
+    const craftPlanBlocks = blocks.filter((block) => block.id === "craft_plan");
+    assert.equal(craftPlanBlocks.length, 1);
+    assert.equal(craftPlanBlocks[0].required, true);
+    assert.equal(craftPlanBlocks[0].allowSummary, false);
+    assert.match(craftPlanBlocks[0].content, /证据链调查/);
+    assert.match(craftPlanBlocks[0].content, /具体行动钩子/);
   }
   assert.ok(!writerBlocks.some((block) => block.id === "timeline_context"));
   assert.ok(!writerBlocks.some((block) => block.id === "previous_chapter_hook"));

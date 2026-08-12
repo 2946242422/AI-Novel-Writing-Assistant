@@ -12,6 +12,7 @@ export const WRITER_REQUIRED_CONTEXT_GROUPS = [
   "book_contract",
   "chapter_mission",
   "reader_experience",
+  "craft_plan",
   "character_hard_facts",
   "obligation_contract",
   "volume_window",
