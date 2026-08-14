@@ -149,12 +149,12 @@
 
 完整历史更新见 [docs/releases/release-notes.md](./docs/releases/release-notes.md)。
 
-### 2026-08-12
+### 2026-08-14
 
-- AI 会根据每章任务、人物关系、场景阻力和读者体验，自主决定保持自然写法、聚焦一种技法，或组合两到三种技法。
-- 写法方案会绑定到具体场景并说明目的、执行方式和强度；它只服务已有剧情任务，不会为了“显得文学”强塞感官、通感、比喻或解释性对白。
-- 正文生成、章节审核和修复共用同一份写法方案，审核只检查本章实际选中的技法，不会把未选技巧当成缺陷。
-- 章节执行页可以直接查看 AI 的选择依据、节奏、结尾策略和重点避免项；旧章节没有写法方案时会自动按自然模式兼容。
+- Windows 本地使用 Gemini 官方接口时，服务端会自动通过 `http://127.0.0.1:7897` 代理发起模型请求，无需在快捷配置窗口重复填写代理地址。
+- 如果本地代理端口不同，可以用 `GEMINI_PROXY_URL` 覆盖；需要让所有 OpenAI 兼容模型共用代理时，可以设置 `AI_NOVEL_PROXY_URL`。
+- 快捷配置的普通文本与结构化输出检测新增 30 秒超时；代理未启动或网络不可达时会返回明确错误，不再一直停留在检测中。
+- DeepSeek 等其他供应商默认保持直连，现有模型配置和旧项目无需迁移。
 
 > 查看完整更新历史：[docs/releases/release-notes.md](./docs/releases/release-notes.md)
 
@@ -394,6 +394,8 @@ Copy-Item server/.env.example server/.env
 
 - `OPENAI_API_KEY`、`DEEPSEEK_API_KEY`、`SILICONFLOW_API_KEY` 这类变量可以先留空
 - 项目启动后，也可以在页面中配置模型供应商和默认模型
+- Gemini 官方接口默认使用本地代理 `http://127.0.0.1:7897`；端口不同时可在 `server/.env` 设置 `GEMINI_PROXY_URL`
+- 如需让所有 OpenAI 兼容模型请求共用代理，可设置 `AI_NOVEL_PROXY_URL`；未设置时 DeepSeek 等其他供应商仍保持直连
 
 #### 2.2 前端环境变量
 

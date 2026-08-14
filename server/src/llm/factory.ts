@@ -17,6 +17,7 @@ import {
 } from "./structuredOutput";
 import { attachLLMUsageTracking } from "./usageTracking";
 import { resolveModel, toStructuredOutputStrategy, type TaskType } from "./modelRouter";
+import { resolveLlmProxyDispatcher } from "./transport/proxy";
 import {
   getProviderEnvApiKey,
   getProviderEnvModel,
@@ -350,6 +351,12 @@ export async function resolveLLMClientOptions(
 }
 
 export function createLLMFromResolvedOptions(resolved: ResolvedLLMClientOptions): ChatOpenAI {
+  const proxyDispatcher = resolved.requestProtocol === "openai_compatible"
+    ? resolveLlmProxyDispatcher({
+      provider: resolved.provider,
+      baseURL: resolved.baseURL,
+    })
+    : undefined;
   const llm = resolved.requestProtocol === "anthropic"
     ? createAnthropicLLM({
       apiKey: resolved.apiKey,
@@ -370,6 +377,7 @@ export function createLLMFromResolvedOptions(resolved: ResolvedLLMClientOptions)
       __includeRawResponse: resolved.includeRawResponse,
       configuration: {
         baseURL: resolved.baseURL,
+        ...(proxyDispatcher ? { fetchOptions: { dispatcher: proxyDispatcher } } : {}),
       },
     });
   const meta = {

@@ -57,3 +57,26 @@
 - [正文产出链路瘦身与资产回灌优化计划](../../plans/chapter-output-pipeline-optimization-plan.md)
 - [Prompt Governance Audit 2026-05-08](../../checkpoints/prompt-governance-audit-2026-05-08.md)
 - [README 最新更新](../../../README.md)
+
+## Gemini 配置检测长期停留在连接中
+
+### 现象
+
+快捷配置停留在“正在检测普通文本与结构化输出”，浏览器或其他客户端使用同一 API Key 可以调用 Gemini，但 Node 服务没有返回成功或失败。
+
+### 判断顺序
+
+1. 检查 Node 服务到 `generativelanguage.googleapis.com:443` 的连接状态；长期停留在 `SYN_SENT` 说明问题发生在 TCP 建连阶段，不是 API Key 或结构化输出解析失败。
+2. 分别验证直连与本地代理。Windows 的“系统代理”只会自动作用于使用 WinINET/系统代理感知的程序，Node `fetch` 与 OpenAI SDK 不会自动继承该设置。
+3. 检查代理监听端口。开发环境默认使用 `http://127.0.0.1:7897` 访问 Gemini；可以通过 `GEMINI_PROXY_URL` 覆盖 Gemini 代理，或通过 `AI_NOVEL_PROXY_URL` 为 OpenAI 兼容模型请求指定统一代理。
+
+### 当前规则
+
+- 官方 Gemini 接口默认通过本地代理 `http://127.0.0.1:7897` 发起请求。
+- 代理优先级为 `GEMINI_PROXY_URL`、`AI_NOVEL_PROXY_URL`、`HTTPS_PROXY`、`ALL_PROXY`、`HTTP_PROXY`、Gemini 本地默认值。
+- 普通文本与结构化输出探针都有 30 秒强制超时。代理未启动或网络不可达时必须返回可见错误，不能让配置界面无限等待。
+- DeepSeek 等非 Gemini 官方地址不会因为 Gemini 的本地默认值而被强制代理；只有显式配置通用代理环境变量时才会走代理。
+
+### 维护边界
+
+代理由 LLM 传输层统一注入，不应在具体规划、写作、审校或修复服务中分别处理。代理地址不得写入请求日志，避免包含认证信息的代理 URL 泄漏。

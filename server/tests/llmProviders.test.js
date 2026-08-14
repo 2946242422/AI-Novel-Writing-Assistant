@@ -13,6 +13,66 @@ const {
   resolveStructuredOutputProfile,
   selectStructuredOutputStrategy,
 } = require("../dist/llm/structuredOutput.js");
+const {
+  DEFAULT_GEMINI_PROXY_URL,
+  resolveLlmProxyUrl,
+} = require("../dist/llm/transport/proxy.js");
+
+test("Gemini uses the local proxy by default and supports environment overrides", () => {
+  const variableNames = [
+    "GEMINI_PROXY_URL",
+    "AI_NOVEL_PROXY_URL",
+    "HTTPS_PROXY",
+    "ALL_PROXY",
+    "HTTP_PROXY",
+  ];
+  const previousValues = Object.fromEntries(variableNames.map((name) => [name, process.env[name]]));
+  try {
+    for (const name of variableNames) {
+      delete process.env[name];
+    }
+    assert.equal(
+      resolveLlmProxyUrl({
+        provider: "gemini",
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      }),
+      DEFAULT_GEMINI_PROXY_URL,
+    );
+    assert.equal(
+      resolveLlmProxyUrl({
+        provider: "openai",
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      }),
+      DEFAULT_GEMINI_PROXY_URL,
+    );
+    assert.equal(
+      resolveLlmProxyUrl({ provider: "deepseek", baseURL: "https://api.deepseek.com/v1" }),
+      null,
+    );
+
+    process.env.GEMINI_PROXY_URL = "http://127.0.0.1:9000/";
+    assert.equal(
+      resolveLlmProxyUrl({ provider: "gemini" }),
+      "http://127.0.0.1:9000",
+    );
+    assert.equal(
+      resolveLlmProxyUrl({
+        provider: "openai",
+        baseURL: "https://generativelanguage.googleapis.com/v1beta/openai",
+      }),
+      "http://127.0.0.1:9000",
+    );
+  } finally {
+    for (const name of variableNames) {
+      const previous = previousValues[name];
+      if (previous === undefined) {
+        delete process.env[name];
+      } else {
+        process.env[name] = previous;
+      }
+    }
+  }
+});
 
 test("supported providers include kimi, minimax, glm, qwen, gemini and ollama", () => {
   for (const provider of ["kimi", "minimax", "glm", "qwen", "gemini", "ollama"]) {

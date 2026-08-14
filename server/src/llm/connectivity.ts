@@ -19,12 +19,15 @@ import {
   selectStructuredOutputStrategy,
   type StructuredOutputStrategy,
 } from "./structuredOutput";
+import { runWithEnforcedTimeout } from "./invokeTimeout";
 
 export type ConnectivityProbeMode = "plain" | "structured" | "both";
 
 const STRUCTURED_PROBE_SCHEMA = z.object({
   status: z.literal("ok"),
 });
+
+export const CONNECTIVITY_PROBE_TIMEOUT_MS = 30_000;
 
 export interface ConnectivityProbeStatus {
   ok: boolean;
@@ -113,6 +116,7 @@ async function testPlainConnection(input: {
       model: input.model,
       temperature: 0.1,
       maxTokens: 16,
+      timeoutMs: CONNECTIVITY_PROBE_TIMEOUT_MS,
       requestProtocol: input.requestProtocol,
     });
     const llm = await getLLM(input.provider, {
@@ -121,10 +125,18 @@ async function testPlainConnection(input: {
       model: resolved.model,
       temperature: 0.1,
       maxTokens: 16,
+      timeoutMs: CONNECTIVITY_PROBE_TIMEOUT_MS,
       requestProtocol: resolved.requestProtocol,
     });
     const start = Date.now();
-    await llm.invoke([new HumanMessage("请只回复 ok")]);
+    await runWithEnforcedTimeout({
+      label: "llm.connectivity.plain_probe",
+      timeoutMs: CONNECTIVITY_PROBE_TIMEOUT_MS,
+      run: (signal) => llm.invoke(
+        [new HumanMessage("请只回复 ok")],
+        signal ? { signal } : undefined,
+      ),
+    });
     const plain = {
       ok: true,
       latency: Date.now() - start,
@@ -188,6 +200,7 @@ async function testStructuredConnection(input: {
       baseURL: input.baseURL ?? resolved.baseURL,
       temperature: 0.2,
       maxTokens: 256,
+      timeoutMs: CONNECTIVITY_PROBE_TIMEOUT_MS,
       taskType: "planner",
       requestProtocol: resolved.requestProtocol,
       structuredStrategy: toStructuredOutputStrategy(input.structuredResponseFormat ?? "auto") ?? undefined,
