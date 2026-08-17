@@ -22,6 +22,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { AUTO_DIRECTOR_MOBILE_CLASSES } from "@/mobile/autoDirector";
+import { shouldCollapseText } from "@/components/common/collapsibleTextState";
 import {
   getFollowUpLevelLabel,
   getFollowUpPriorityLabel,
@@ -192,7 +193,10 @@ export function AutoDirectorFollowUpListPanel(props: AutoDirectorFollowUpListPan
                 <div className={AUTO_DIRECTOR_MOBILE_CLASSES.followUpListHeader}>
                   <div className="min-w-0 space-y-1">
                     <div className={`${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText} font-medium`}>{item.novelTitle}</div>
-                    <div className={`${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText} text-sm text-muted-foreground`}>{item.followUpSummary}</div>
+                    <div className={`${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText} line-clamp-4 text-sm text-muted-foreground`}>{item.followUpSummary}</div>
+                    {shouldCollapseText(item.followUpSummary) ? (
+                      <div className="text-xs text-muted-foreground">已折叠长日志，选择后可在右侧展开查看。</div>
+                    ) : null}
                   </div>
                   <div className="flex shrink-0 flex-wrap items-center gap-2">
                     <TaskQueueSeverityBadge severity={getFollowUpSeverity(item)} label={getFollowUpLevelLabel(item)} />

@@ -10,7 +10,7 @@ import {
 
 interface WorkspaceStateNoticeProps {
   title: string;
-  description: string;
+  description: ReactNode;
   tone?: WorkspaceTone;
   icon?: LucideIcon;
   action?: ReactNode;

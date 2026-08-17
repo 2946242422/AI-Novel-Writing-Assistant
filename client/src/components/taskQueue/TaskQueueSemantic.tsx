@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { CollapsibleText } from "@/components/common/CollapsibleText";
 import { WorkspaceStateNotice } from "@/components/workspace";
 import { TaskQueueMetricGrid, TaskQueueStatusBadge, type TaskQueueMetricItem } from "./TaskQueuePrimitives";
 
@@ -31,7 +32,7 @@ export function TaskQueueImpactNotice(props: {
     <WorkspaceStateNotice
       tone={severityTone[props.severity]}
       title={props.title}
-      description={props.description}
+      description={<CollapsibleText text={props.description} />}
       action={props.action}
       compact={props.compact}
     />
