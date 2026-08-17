@@ -19,6 +19,10 @@ import type {
   QuickSetupStatus,
 } from "@ai-novel/shared/types/onboarding";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
+import {
+  buildOpenAIChatCompletionsPreview,
+  normalizeOpenAICompatibleBaseURL,
+} from "@ai-novel/shared/utils/openAiCompatibleUrl";
 import { completeQuickSetup } from "@/api/onboarding";
 import { previewCustomProviderModels } from "@/api/settings";
 import { queryKeys } from "@/api/queryKeys";
@@ -89,6 +93,9 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
   const modelOptions = form.providerKind === "custom"
     ? customModels
     : selectedProvider?.models ?? [];
+  const customEndpointPreview = form.providerKind === "custom"
+    ? buildOpenAIChatCompletionsPreview(form.baseURL)
+    : "";
 
   useEffect(() => {
     if (!shouldInitializeQuickSetupProvider({
@@ -137,7 +144,7 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
   const previewMutation = useMutation({
     mutationFn: () => previewCustomProviderModels({
       key: form.apiKey.trim() || undefined,
-      baseURL: form.baseURL.trim(),
+      baseURL: normalizeOpenAICompatibleBaseURL(form.baseURL),
     }),
     onSuccess: (response) => {
       const models = response.data?.models ?? [];
@@ -192,13 +199,16 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
   });
 
   const submit = () => {
+    const baseURL = form.providerKind === "custom"
+      ? normalizeOpenAICompatibleBaseURL(form.baseURL)
+      : form.baseURL.trim();
     setStep(3);
     completeMutation.mutate({
       providerKind: form.providerKind,
       ...(form.provider ? { provider: form.provider } : {}),
       ...(form.providerKind === "custom" ? { customProviderName: form.customProviderName.trim() } : {}),
       ...(form.apiKey.trim() ? { apiKey: form.apiKey.trim() } : {}),
-      baseURL: form.baseURL.trim(),
+      baseURL,
       model: form.model.trim(),
     });
   };
@@ -357,7 +367,23 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
             </label>
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">API 地址</span>
-              <Input value={form.baseURL} placeholder="https://api.example.com/v1" onChange={(event) => setForm((current) => ({ ...current, baseURL: event.target.value }))} />
+              <Input
+                value={form.baseURL}
+                placeholder="https://api.example.com"
+                onChange={(event) => setForm((current) => ({ ...current, baseURL: event.target.value }))}
+                onBlur={() => {
+                  if (form.providerKind !== "custom") return;
+                  setForm((current) => ({
+                    ...current,
+                    baseURL: normalizeOpenAICompatibleBaseURL(current.baseURL),
+                  }));
+                }}
+              />
+              {form.providerKind === "custom" && customEndpointPreview ? (
+                <span className="block break-all text-xs text-muted-foreground">
+                  预览：{customEndpointPreview}
+                </span>
+              ) : null}
             </label>
             {form.providerKind === "custom" ? (
               <div className="flex flex-wrap items-center gap-3">

@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { ApiResponse } from "@ai-novel/shared/types/api";
 import type { BuiltinLLMProvider, LLMProvider } from "@ai-novel/shared/types/llm";
+import { normalizeOpenAICompatibleBaseURL } from "@ai-novel/shared/utils/openAiCompatibleUrl";
 import { z } from "zod";
 import { setProviderSecretCache } from "../llm/factory";
 import { evictSharedLimiters } from "../llm/requestLimiter";
@@ -487,9 +488,12 @@ router.put(
       const envKey = getProviderEnvApiKey(provider);
       const effectiveKey = nextKey ?? envKey;
       const nextModel = normalizeOptionalText(body.model) ?? normalizeOptionalText(existingRecord?.model);
-      const nextBaseURL = body.baseURL !== undefined
+      const rawNextBaseURL = body.baseURL !== undefined
         ? normalizeOptionalText(body.baseURL)
         : normalizeOptionalText(existingRecord?.baseURL);
+      const nextBaseURL = rawNextBaseURL && !isBuiltInProvider(provider)
+        ? normalizeOpenAICompatibleBaseURL(rawNextBaseURL)
+        : rawNextBaseURL;
       const nextDisplayName = !isBuiltInProvider(provider)
         ? normalizeOptionalText(body.displayName) ?? normalizeOptionalText(existingRecord?.displayName) ?? provider
         : undefined;

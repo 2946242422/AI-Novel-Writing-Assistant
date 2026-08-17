@@ -6,6 +6,7 @@ import type {
 } from "@ai-novel/shared/types/onboarding";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import type { ModelRouteTaskType } from "@ai-novel/shared/types/novel";
+import { normalizeOpenAICompatibleBaseURL } from "@ai-novel/shared/utils/openAiCompatibleUrl";
 import { setProviderSecretCache } from "../../../../llm/factory";
 import { llmConnectivityService } from "../../../../llm/connectivity";
 import {
@@ -206,9 +207,12 @@ export async function completeQuickSetup(
   const provider = resolvedInput.provider;
   const model = input.model.trim();
   const apiKey = normalizeOptionalText(input.apiKey) ?? resolvedInput.existingKey;
-  const baseURL = normalizeOptionalText(input.baseURL)
+  const resolvedBaseURL = normalizeOptionalText(input.baseURL)
     ?? resolvedInput.existingBaseURL
     ?? (isBuiltInProvider(provider) ? PROVIDERS[provider].baseURL : undefined);
+  const baseURL = resolvedBaseURL && !isBuiltInProvider(provider)
+    ? normalizeOpenAICompatibleBaseURL(resolvedBaseURL)
+    : resolvedBaseURL;
   if (!model) {
     throw new AppError("请选择或填写一个文本模型。", 400);
   }

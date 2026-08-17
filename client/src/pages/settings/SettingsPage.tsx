@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ApiResponse } from "@ai-novel/shared/types/api";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
+import { normalizeOpenAICompatibleBaseURL } from "@ai-novel/shared/utils/openAiCompatibleUrl";
 import {
   type APIKeyStatus,
   createCustomProvider,
@@ -360,18 +361,21 @@ export default function SettingsPage() {
     setPreviewModelsResult("");
     previewCustomProviderModelsMutation.mutate({
       key: form.key.trim() ? form.key : undefined,
-      baseURL: form.baseURL.trim(),
+      baseURL: normalizeOpenAICompatibleBaseURL(form.baseURL),
     });
   };
 
   const handleSubmitProviderDialog = () => {
+    const baseURL = isCustomDialog
+      ? normalizeOpenAICompatibleBaseURL(form.baseURL)
+      : form.baseURL;
     if (isCreatingCustomProvider) {
       createCustomProviderMutation.mutate({
         name: form.displayName.trim(),
         key: form.key.trim() ? form.key : undefined,
         model: form.model.trim() || undefined,
         imageModel: form.imageModel.trim(),
-        baseURL: form.baseURL.trim(),
+        baseURL,
         concurrencyLimit: Number.parseInt(form.concurrencyLimit, 10) || 0,
         requestIntervalMs: Number.parseInt(form.requestIntervalMs, 10) || 0,
       });
@@ -386,7 +390,7 @@ export default function SettingsPage() {
       key: form.key.trim() ? form.key : undefined,
       model: form.model.trim() || undefined,
       imageModel: form.imageModel.trim(),
-      baseURL: form.baseURL,
+      baseURL,
       concurrencyLimit: Number.parseInt(form.concurrencyLimit, 10) || 0,
       requestIntervalMs: Number.parseInt(form.requestIntervalMs, 10) || 0,
     });
@@ -421,12 +425,15 @@ export default function SettingsPage() {
   };
 
   const handleTestProviderDialog = () => {
+    const baseURL = isCustomDialog
+      ? normalizeOpenAICompatibleBaseURL(form.baseURL)
+      : form.baseURL.trim();
     testMutation.mutate(
       {
         provider: editingProvider || "custom_preview",
         apiKey: form.key.trim() ? form.key : undefined,
         model: form.model.trim() || undefined,
-        baseURL: form.baseURL.trim() ? form.baseURL : undefined,
+        baseURL: baseURL || undefined,
         probeMode: "both",
       },
       {

@@ -1,5 +1,6 @@
 import type { Router } from "express";
 import type { ApiResponse } from "@ai-novel/shared/types/api";
+import { normalizeOpenAICompatibleBaseURL } from "@ai-novel/shared/utils/openAiCompatibleUrl";
 import { z } from "zod";
 import { prisma } from "../../db/prisma";
 import { setProviderSecretCache } from "../../llm/factory";
@@ -101,10 +102,11 @@ export function registerCustomProviderRoutes(router: Router): void {
     async (req, res, next) => {
       try {
         const body = req.body as z.infer<typeof customProviderModelsSchema>;
+        const baseURL = normalizeOpenAICompatibleBaseURL(body.baseURL);
         const models = await refreshProviderModels(
           "custom_preview",
           normalizeOptionalText(body.key),
-          body.baseURL.trim(),
+          baseURL,
         );
         res.status(200).json({
           success: true,
@@ -135,7 +137,7 @@ export function registerCustomProviderRoutes(router: Router): void {
         const body = req.body as z.infer<typeof createCustomProviderSchema>;
         const provider = await ensureUniqueCustomProviderId(body.name);
         const apiKey = normalizeOptionalText(body.key);
-        const baseURL = body.baseURL.trim();
+        const baseURL = normalizeOpenAICompatibleBaseURL(body.baseURL);
         let model = normalizeOptionalText(body.model);
         let models = getFallbackModels(model);
         let message = "自定义厂商已创建。";

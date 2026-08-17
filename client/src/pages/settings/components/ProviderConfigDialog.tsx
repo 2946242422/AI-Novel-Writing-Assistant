@@ -1,5 +1,9 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { APIKeyStatus } from "@/api/settings";
+import {
+  buildOpenAIChatCompletionsPreview,
+  normalizeOpenAICompatibleBaseURL,
+} from "@ai-novel/shared/utils/openAiCompatibleUrl";
 import SearchableSelect from "@/components/common/SearchableSelect";
 import { Button } from "@/components/ui/button";
 import { AppDialogContent, Dialog } from "@/components/ui/dialog";
@@ -67,6 +71,9 @@ export default function ProviderConfigDialog({
   const canSelectListedModels = selectableModels.length > 0;
   const imageModelOptions = editingConfig?.imageModels ?? [];
   const canSelectImageModels = imageModelOptions.length > 0;
+  const endpointPreview = isCustomDialog
+    ? buildOpenAIChatCompletionsPreview(form.baseURL)
+    : "";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -147,12 +154,24 @@ export default function ProviderConfigDialog({
                   onClearPreviewModels();
                 }
               }}
+              onBlur={() => {
+                if (!isCustomDialog) return;
+                setForm((prev) => ({
+                  ...prev,
+                  baseURL: normalizeOpenAICompatibleBaseURL(prev.baseURL),
+                }));
+              }}
             />
             <div className="text-xs text-muted-foreground">
               {isCreatingCustomProvider
-                ? "填写 OpenAI 兼容 API 地址，通常以 /v1 结尾；本地 Ollama 常见地址是 http://127.0.0.1:11434/v1。"
+                ? "只填写域名即可自动补全 /v1；已有自定义路径会保持原样。"
                 : "留空会使用默认地址；本地 Ollama 常见地址是 http://127.0.0.1:11434/v1。"}
             </div>
+            {endpointPreview ? (
+              <div className="break-all text-xs text-muted-foreground">
+                预览：{endpointPreview}
+              </div>
+            ) : null}
           </div>
 
           {isCreatingCustomProvider ? (
