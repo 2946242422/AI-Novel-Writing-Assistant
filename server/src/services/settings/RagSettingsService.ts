@@ -394,7 +394,7 @@ export async function saveRagEmbeddingSettings(input: RagEmbeddingSettingsInput)
 }
 
 export async function getRagEmbeddingProviders(): Promise<RagEmbeddingProviderStatus[]> {
-  const builtInProviders = [...SUPPORTED_PROVIDERS];
+  const builtInProviders = SUPPORTED_PROVIDERS.filter((provider) => provider !== "codex");
   try {
     const items = await prisma.aPIKey.findMany({
       select: {

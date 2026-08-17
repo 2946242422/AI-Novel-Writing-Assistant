@@ -219,7 +219,7 @@ async function importMissingRagSettingsFromEnv(): Promise<string[]> {
 }
 
 async function importMissingEmbeddingProviderRecords(): Promise<string[]> {
-  const providers: EmbeddingProvider[] = [...SUPPORTED_PROVIDERS];
+  const providers: EmbeddingProvider[] = SUPPORTED_PROVIDERS.filter((provider) => provider !== "codex");
   try {
     const existingRecords = await prisma.aPIKey.findMany({
       where: {

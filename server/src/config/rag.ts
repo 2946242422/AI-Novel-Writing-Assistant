@@ -136,5 +136,5 @@ export const ragConfig = {
   contextualRetrievalVersion: asInt(process.env.RAG_CONTEXTUAL_RETRIEVAL_VERSION ?? "1", 1, 1, 100),
   contextualRetrievalTimeoutMs: asInt(process.env.RAG_CONTEXTUAL_RETRIEVAL_TIMEOUT_MS ?? "15000", 15000, 1000, 120000),
   contextualRetrievalConcurrency: asInt(process.env.RAG_CONTEXTUAL_RETRIEVAL_CONCURRENCY ?? "2", 2, 1, 8),
-  providerPriority: [...LLM_PROVIDERS] as EmbeddingProvider[],
+  providerPriority: LLM_PROVIDERS.filter((provider) => provider !== "codex") as EmbeddingProvider[],
 };

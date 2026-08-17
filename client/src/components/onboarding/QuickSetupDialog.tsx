@@ -68,6 +68,7 @@ const EMPTY_FORM: SetupForm = {
 function providerDescription(provider: QuickSetupProviderOption): string {
   if (provider.id === "deepseek") return "中文长篇规划与写作的低门槛选择";
   if (provider.id === "ollama") return "使用本机模型，不要求 API Key";
+  if (provider.id === "codex") return "复用本机 ChatGPT/Codex 登录，不需要 API Key";
   if (provider.id === "openai") return "适合通用规划、正文与结构化任务";
   return provider.configured ? "已有配置，可以直接检测并设为全局默认" : "配置后可用于整条小说生产链";
 }
@@ -96,6 +97,7 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
   const customEndpointPreview = form.providerKind === "custom"
     ? buildOpenAIChatCompletionsPreview(form.baseURL)
     : "";
+  const isCodexProvider = form.provider === "codex";
 
   useEffect(() => {
     if (!shouldInitializeQuickSetupProvider({
@@ -355,36 +357,44 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
                 <Input value={form.customProviderName} placeholder="例如：我的模型网关" onChange={(event) => setForm((current) => ({ ...current, customProviderName: event.target.value }))} />
               </label>
             ) : null}
-            <label className="block space-y-1.5">
-              <span className="flex items-center gap-2 text-sm font-medium"><KeyRound className="h-4 w-4" /> API Key {requiresApiKey ? "" : "（可选）"}</span>
-              <Input
-                type="password"
-                autoComplete="off"
-                value={form.apiKey}
-                placeholder={hasSavedKey ? "留空则继续使用已保存的 Key" : requiresApiKey ? "输入 API Key" : "本地接口可以留空"}
-                onChange={(event) => setForm((current) => ({ ...current, apiKey: event.target.value }))}
-              />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-sm font-medium">API 地址</span>
-              <Input
-                value={form.baseURL}
-                placeholder="https://api.example.com"
-                onChange={(event) => setForm((current) => ({ ...current, baseURL: event.target.value }))}
-                onBlur={() => {
-                  if (form.providerKind !== "custom") return;
-                  setForm((current) => ({
-                    ...current,
-                    baseURL: normalizeOpenAICompatibleBaseURL(current.baseURL),
-                  }));
-                }}
-              />
-              {form.providerKind === "custom" && customEndpointPreview ? (
-                <span className="block break-all text-xs text-muted-foreground">
-                  预览：{customEndpointPreview}
-                </span>
-              ) : null}
-            </label>
+            {isCodexProvider ? (
+              <div className="rounded-lg border border-primary/20 bg-primary/5 p-3 text-sm leading-6 text-muted-foreground">
+                使用本机已登录的 Codex。检测时会启动一次只读临时任务，不读取小说项目文件，也不需要填写 API Key。
+              </div>
+            ) : (
+              <>
+                <label className="block space-y-1.5">
+                  <span className="flex items-center gap-2 text-sm font-medium"><KeyRound className="h-4 w-4" /> API Key {requiresApiKey ? "" : "（可选）"}</span>
+                  <Input
+                    type="password"
+                    autoComplete="off"
+                    value={form.apiKey}
+                    placeholder={hasSavedKey ? "留空则继续使用已保存的 Key" : requiresApiKey ? "输入 API Key" : "本地接口可以留空"}
+                    onChange={(event) => setForm((current) => ({ ...current, apiKey: event.target.value }))}
+                  />
+                </label>
+                <label className="block space-y-1.5">
+                  <span className="text-sm font-medium">API 地址</span>
+                  <Input
+                    value={form.baseURL}
+                    placeholder="https://api.example.com"
+                    onChange={(event) => setForm((current) => ({ ...current, baseURL: event.target.value }))}
+                    onBlur={() => {
+                      if (form.providerKind !== "custom") return;
+                      setForm((current) => ({
+                        ...current,
+                        baseURL: normalizeOpenAICompatibleBaseURL(current.baseURL),
+                      }));
+                    }}
+                  />
+                  {form.providerKind === "custom" && customEndpointPreview ? (
+                    <span className="block break-all text-xs text-muted-foreground">
+                      预览：{customEndpointPreview}
+                    </span>
+                  ) : null}
+                </label>
+              </>
+            )}
             {form.providerKind === "custom" ? (
               <div className="flex flex-wrap items-center gap-3">
                 <Button type="button" variant="outline" size="sm" onClick={() => previewMutation.mutate()} disabled={!form.baseURL.trim() || previewMutation.isPending}>
@@ -410,7 +420,12 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
             ) : null}
             <label className="block space-y-1.5">
               <span className="text-sm font-medium">文本模型</span>
-              <Input value={form.model} placeholder="选择上方模型，或直接填写模型名称" onChange={(event) => setForm((current) => ({ ...current, model: event.target.value }))} />
+              <Input
+                value={form.model}
+                disabled={isCodexProvider}
+                placeholder="选择上方模型，或直接填写模型名称"
+                onChange={(event) => setForm((current) => ({ ...current, model: event.target.value }))}
+              />
             </label>
             <div className="rounded-lg border bg-muted/20 p-3 text-xs leading-5 text-muted-foreground">
               完成后，这个模型会作为规划、正文、审核、修复、重规划和摘要等核心任务的初始默认值。

@@ -4,6 +4,7 @@ import {
   type BuiltinLLMProvider,
   type LLMProvider,
 } from "@ai-novel/shared/types/llm";
+import { getCodexBridgeBaseURL } from "./codexBridge";
 
 export interface ProviderConfig {
   name: string;
@@ -138,6 +139,15 @@ export const PROVIDERS: Record<BuiltinLLMProvider, ProviderConfig> = {
     envKey: "OLLAMA_API_KEY",
     envBaseURLKey: "OLLAMA_BASE_URL",
     envModelKey: "OLLAMA_MODEL",
+    requiresApiKey: false,
+  },
+  codex: {
+    name: "本地 Codex",
+    baseURL: getCodexBridgeBaseURL(),
+    defaultModel: "local-chatgpt",
+    models: ["local-chatgpt"],
+    envKey: "CODEX_LOCAL_API_KEY",
+    envBaseURLKey: "CODEX_BRIDGE_BASE_URL",
     requiresApiKey: false,
   },
 };

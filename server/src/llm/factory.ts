@@ -4,6 +4,7 @@ import { ChatOpenAI } from "@langchain/openai";
 import type { PromptInvocationMeta } from "../prompting/core/promptTypes";
 import { secretStore } from "../services/settings/secretStore";
 import { resolveModelTemperature } from "./capabilities";
+import { ensureCodexBridgeServer } from "./codexBridge";
 import { createAnthropicLLM } from "./anthropicClient";
 import { attachLLMDebugLogging } from "./debugLogging";
 import { attachLLMRequestLimiter } from "./requestLimiter";
@@ -243,6 +244,9 @@ export async function resolveLLMClientOptions(
   }
 
   const dbSecret = await resolveProviderSecret(resolvedProvider);
+  if (resolvedProvider === "codex" && !process.env.CODEX_BRIDGE_BASE_URL?.trim()) {
+    await ensureCodexBridgeServer();
+  }
   const providerName = isBuiltInProvider(resolvedProvider)
     ? PROVIDERS[resolvedProvider].name
     : dbSecret?.displayName ?? resolvedProvider;
@@ -273,8 +277,12 @@ export async function resolveLLMClientOptions(
 
   const temperature = resolveModelTemperature(resolvedProvider, model, resolvedTemperature);
   const timeoutMs = normalizeOptionalTimeoutMs(options.timeoutMs);
-  const concurrencyLimit = normalizeLimitValue(dbSecret?.concurrencyLimit);
-  const requestIntervalMs = normalizeLimitValue(dbSecret?.requestIntervalMs);
+  const concurrencyLimit = resolvedProvider === "codex"
+    ? Math.max(1, normalizeLimitValue(dbSecret?.concurrencyLimit))
+    : normalizeLimitValue(dbSecret?.concurrencyLimit);
+  const requestIntervalMs = resolvedProvider === "codex"
+    ? Math.max(500, normalizeLimitValue(dbSecret?.requestIntervalMs))
+    : normalizeLimitValue(dbSecret?.requestIntervalMs);
   const requestProtocol = options.requestProtocol === "anthropic" ? "anthropic" : "openai_compatible";
   const structuredStrategy = options.structuredStrategy;
   const executionMode = options.executionMode ?? "plain";

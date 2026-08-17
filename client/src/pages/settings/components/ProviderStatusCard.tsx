@@ -27,6 +27,9 @@ function getBalanceSummary(input: {
   isBalanceLoading: boolean;
 }) {
   const { provider, balance, isBalanceLoading } = input;
+  if (provider.provider === "codex") {
+    return "使用 ChatGPT 套餐中的 Codex 额度；连接测试可确认当前账户是否可用。";
+  }
   if (provider.kind === "custom") {
     return "自定义厂商暂不接入余额查询。";
   }
@@ -181,7 +184,7 @@ export default function ProviderStatusCard(props: {
             concurrencyLimit={provider.concurrencyLimit}
             requestIntervalMs={provider.requestIntervalMs}
           />
-          <div className="flex flex-col gap-3 rounded-md border bg-background/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
+          {provider.provider !== "codex" ? <div className="flex flex-col gap-3 rounded-md border bg-background/60 px-3 py-2 sm:flex-row sm:items-center sm:justify-between">
             <div className="min-w-0 space-y-1">
               <div className="text-xs font-medium text-muted-foreground">思考功能</div>
               <div className={`text-xs text-muted-foreground ${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText}`}>
@@ -198,7 +201,7 @@ export default function ProviderStatusCard(props: {
                 onCheckedChange={(checked) => onToggleReasoning(provider.provider, checked)}
               />
             </div>
-          </div>
+          </div> : null}
 
           <div className="rounded-md border border-dashed bg-background/60 p-3">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2">

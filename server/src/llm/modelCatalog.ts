@@ -1,4 +1,5 @@
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
+import { ensureCodexBridgeServer } from "./codexBridge";
 import {
   isBuiltInProvider,
   providerRequiresApiKey,
@@ -164,6 +165,9 @@ async function fetchProviderModels(
   apiKey?: string,
   customBaseURL?: string,
 ): Promise<string[]> {
+  if (provider === "codex" && !process.env.CODEX_BRIDGE_BASE_URL?.trim()) {
+    await ensureCodexBridgeServer();
+  }
   const baseURL = resolveProviderBaseUrl(provider, customBaseURL, customBaseURL);
   if (!baseURL) {
     throw new Error("未配置可用的 API URL。");

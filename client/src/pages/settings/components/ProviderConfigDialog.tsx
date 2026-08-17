@@ -74,6 +74,7 @@ export default function ProviderConfigDialog({
   const endpointPreview = isCustomDialog
     ? buildOpenAIChatCompletionsPreview(form.baseURL)
     : "";
+  const isCodexProvider = editingConfig?.provider === "codex";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -121,25 +122,31 @@ export default function ProviderConfigDialog({
             </div>
           ) : null}
 
-          {(isCustomDialog || editingConfig?.requiresApiKey === false) ? (
+          {isCodexProvider ? (
+            <div className="rounded-md border border-primary/20 bg-primary/5 px-3 py-2 text-sm leading-6 text-muted-foreground">
+              复用本机 ChatGPT/Codex 登录，不需要 API Key。每次生成都在只读临时目录中运行。
+            </div>
+          ) : (isCustomDialog || editingConfig?.requiresApiKey === false) ? (
             <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
               API Key 可以留空；填写 API 地址后可获取模型列表，系统会选择一个默认模型。
             </div>
           ) : null}
 
-          <Input
-            type="password"
-            value={form.key}
-            placeholder={editingConfig?.isConfigured ? "留空则沿用保存的 API Key" : "输入 API Key"}
-            onChange={(event) => {
-              setForm((prev) => ({ ...prev, key: event.target.value }));
-              if (isCreatingCustomProvider) {
-                onClearPreviewModels();
-              }
-            }}
-          />
+          {!isCodexProvider ? (
+            <Input
+              type="password"
+              value={form.key}
+              placeholder={editingConfig?.isConfigured ? "留空则沿用保存的 API Key" : "输入 API Key"}
+              onChange={(event) => {
+                setForm((prev) => ({ ...prev, key: event.target.value }));
+                if (isCreatingCustomProvider) {
+                  onClearPreviewModels();
+                }
+              }}
+            />
+          ) : null}
 
-          <div className="space-y-1">
+          {!isCodexProvider ? <div className="space-y-1">
             <div className="text-xs text-muted-foreground">API 地址</div>
             <Input
               value={form.baseURL}
@@ -172,7 +179,7 @@ export default function ProviderConfigDialog({
                 预览：{endpointPreview}
               </div>
             ) : null}
-          </div>
+          </div> : null}
 
           {isCreatingCustomProvider ? (
             <div className="space-y-2">
@@ -219,11 +226,12 @@ export default function ProviderConfigDialog({
           </div>
           <Input
             value={form.model}
+            disabled={isCodexProvider}
             placeholder="也可以直接手动输入模型名"
             onChange={(event) => setForm((prev) => ({ ...prev, model: event.target.value }))}
           />
 
-          <div className="space-y-3 rounded-md border bg-muted/20 p-3">
+          {!isCodexProvider ? <div className="space-y-3 rounded-md border bg-muted/20 p-3">
             <div className="space-y-1">
               <div className="text-xs text-muted-foreground">图像模型（可选）</div>
               <div className="text-xs text-muted-foreground">
@@ -250,7 +258,7 @@ export default function ProviderConfigDialog({
             <div className="text-xs text-muted-foreground">
               图片生成会调用这个厂商的 OpenAI 兼容图像接口。
             </div>
-          </div>
+          </div> : null}
 
           <ProviderRequestLimitFields
             concurrencyLimit={form.concurrencyLimit}

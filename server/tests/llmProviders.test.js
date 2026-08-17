@@ -74,14 +74,14 @@ test("Gemini uses the local proxy by default and supports environment overrides"
   }
 });
 
-test("supported providers include kimi, minimax, glm, qwen, gemini and ollama", () => {
-  for (const provider of ["kimi", "minimax", "glm", "qwen", "gemini", "ollama"]) {
+test("supported providers include remote, local and ChatGPT-managed options", () => {
+  for (const provider of ["kimi", "minimax", "glm", "qwen", "gemini", "ollama", "codex"]) {
     assert.ok(SUPPORTED_PROVIDERS.includes(provider), `${provider} should be available`);
   }
 });
 
 test("new provider defaults are present in their model fallback lists", () => {
-  for (const provider of ["kimi", "minimax", "glm", "qwen", "gemini", "ollama"]) {
+  for (const provider of ["kimi", "minimax", "glm", "qwen", "gemini", "ollama", "codex"]) {
     assert.ok(
       PROVIDERS[provider].models.includes(PROVIDERS[provider].defaultModel),
       `${provider} default model should exist in fallback models`,
@@ -111,6 +111,29 @@ test("ollama does not advertise forced json mode", () => {
   const capability = getJsonCapability("ollama", "llama3.2");
   assert.equal(capability.supportsJsonObject, false);
   assert.equal(capability.supportsJsonSchema, false);
+});
+
+test("local Codex uses schema output without requiring an API key", async () => {
+  const capability = getJsonCapability("codex", "local-chatgpt");
+  assert.equal(capability.supportsJsonObject, true);
+  assert.equal(capability.supportsJsonSchema, true);
+
+  const profile = resolveStructuredOutputProfile({
+    provider: "codex",
+    model: "local-chatgpt",
+    baseURL: PROVIDERS.codex.baseURL,
+    executionMode: "structured",
+  });
+  assert.equal(profile.family, "codex");
+  assert.equal(profile.preferredStructuredStrategy, "json_schema");
+
+  const resolved = await resolveLLMClientOptions("codex", {
+    model: "local-chatgpt",
+    executionMode: "structured",
+  });
+  assert.equal(resolved.apiKey, undefined);
+  assert.equal(resolved.concurrencyLimit, 1);
+  assert.equal(resolved.requestIntervalMs, 500);
 });
 
 test("minimax clamps temperature into supported range", () => {

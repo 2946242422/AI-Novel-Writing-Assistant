@@ -155,6 +155,8 @@
 - 已配置的 Gemini、DeepSeek 等默认厂商不会在选择自定义接口后自动覆盖当前选择。
 - 自定义 OpenAI 兼容接口只需填写域名；系统会自动补全 `/v1`，并预览最终的 `/v1/chat/completions` 请求地址。
 - 获取模型、测试连接和保存配置都会使用同一份规范化地址；已经包含 `/v1` 或其他路径的地址不会被重复修改。
+- 新增“本地 Codex”厂商：复用本机已登录的 ChatGPT/Codex 账户，不需要 API Key，并支持普通文本与 JSON Schema 结构化任务。
+- 本地 Codex 使用只读临时会话、单并发和回环地址桥接，不读取小说项目文件；调用会消耗 ChatGPT 套餐中的 Codex 使用额度。
 - 原有内置厂商配置和已经保存的自定义厂商继续兼容，无需重新配置。
 
 > 查看完整更新历史：[docs/releases/release-notes.md](./docs/releases/release-notes.md)
