@@ -4,6 +4,7 @@ import type {
   AutoDirectorFollowUpItem,
 } from "@ai-novel/shared/types/autoDirectorFollowUp";
 import { Button } from "@/components/ui/button";
+import { CollapsibleText } from "@/components/common/CollapsibleText";
 import {
   TaskQueueActionRow,
   TaskQueueImpactNotice,
@@ -33,6 +34,24 @@ interface AutoDirectorFollowUpDetailPanelProps {
   onRefreshValidation: () => void | Promise<void>;
   onSafeFix: () => void | Promise<void>;
   onRetry: () => void | Promise<void>;
+}
+
+function FollowUpDetailText(props: {
+  label: string;
+  text: string;
+  collapsedLines?: 3 | 4 | 5 | 6;
+}) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <div className="text-xs font-medium text-foreground">{props.label}</div>
+      <CollapsibleText
+        text={props.text}
+        collapsedLines={props.collapsedLines ?? 4}
+        expandLabel={`展开完整${props.label}`}
+        collapseLabel={`收起${props.label}`}
+      />
+    </div>
+  );
 }
 
 export function AutoDirectorFollowUpDetailPanel({
@@ -112,8 +131,8 @@ export function AutoDirectorFollowUpDetailPanel({
             ) : null}
 
             <div className={`grid gap-2 text-sm text-muted-foreground ${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText}`}>
-              <div>下一步建议：{detail.nextStepSuggestion ?? "查看任务详情后再继续。"}</div>
-              <div>检查点摘要：{detail.checkpointSummary ?? "暂无"}</div>
+              <FollowUpDetailText label="下一步建议" text={detail.nextStepSuggestion ?? "查看任务详情后再继续。"} />
+              <FollowUpDetailText label="检查点摘要" text={detail.checkpointSummary ?? "暂无"} />
               <div>当前模型：{detail.currentModel ?? "暂无"}</div>
             </div>
 
@@ -131,14 +150,28 @@ export function AutoDirectorFollowUpDetailPanel({
                 {(detail.validationSummary?.blockingReasons.length ?? 0) > 0 ? (
                   <div className="space-y-1 text-xs">
                     {detail.validationSummary?.blockingReasons.map((reason) => (
-                      <div key={reason}>阻塞：{reason}</div>
+                      <CollapsibleText
+                        key={reason}
+                        text={`阻塞：${reason}`}
+                        collapsedLines={3}
+                        characterThreshold={200}
+                        expandLabel="展开完整阻塞原因"
+                        collapseLabel="收起阻塞原因"
+                      />
                     ))}
                   </div>
                 ) : null}
                 {(detail.validationSummary?.warnings.length ?? 0) > 0 ? (
                   <div className="space-y-1 text-xs">
                     {detail.validationSummary?.warnings.map((warning) => (
-                      <div key={warning}>提示：{warning}</div>
+                      <CollapsibleText
+                        key={warning}
+                        text={`提示：${warning}`}
+                        collapsedLines={3}
+                        characterThreshold={200}
+                        expandLabel="展开完整提示"
+                        collapseLabel="收起提示"
+                      />
                     ))}
                   </div>
                 ) : null}
@@ -201,7 +234,14 @@ export function AutoDirectorFollowUpDetailPanel({
                     <div className="font-medium">{milestone.label}</div>
                     <div className="text-xs text-muted-foreground">{new Date(milestone.at).toLocaleString()}</div>
                     {milestone.summary ? (
-                      <div className="mt-1 text-xs text-muted-foreground">{milestone.summary}</div>
+                      <CollapsibleText
+                        className="mt-1 text-xs text-muted-foreground"
+                        text={milestone.summary}
+                        collapsedLines={3}
+                        characterThreshold={240}
+                        expandLabel="展开完整里程碑日志"
+                        collapseLabel="收起里程碑日志"
+                      />
                     ) : null}
                   </div>
                 ))}

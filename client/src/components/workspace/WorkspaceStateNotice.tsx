@@ -1,6 +1,7 @@
 import type { LucideIcon } from "lucide-react";
 import type { ReactNode } from "react";
 import { CircleAlert, Info, Loader2 } from "lucide-react";
+import { CollapsibleText } from "@/components/common/CollapsibleText";
 import { cn } from "@/lib/utils";
 import {
   workspaceToneSurfaceClass,
@@ -22,6 +23,9 @@ interface WorkspaceStateNoticeProps {
 export default function WorkspaceStateNotice(props: WorkspaceStateNoticeProps) {
   const tone = props.tone ?? "neutral";
   const Icon = props.loading ? Loader2 : props.icon ?? (tone === "danger" || tone === "warning" ? CircleAlert : Info);
+  const description = typeof props.description === "string"
+    ? <CollapsibleText text={props.description} />
+    : props.description;
 
   return (
     <div
@@ -38,7 +42,7 @@ export default function WorkspaceStateNotice(props: WorkspaceStateNoticeProps) {
           <Icon className={cn("mt-0.5 h-4 w-4 shrink-0", workspaceToneTextClass[tone], props.loading && "animate-spin")} aria-hidden="true" />
           <div className="min-w-0">
             <div className="text-sm font-semibold text-foreground">{props.title}</div>
-            <div className="mt-1 text-sm leading-6 text-muted-foreground">{props.description}</div>
+            <div className="mt-1 text-sm leading-6 text-muted-foreground">{description}</div>
           </div>
         </div>
         {props.action ? <div className="mobile-full-actions shrink-0">{props.action}</div> : null}

@@ -37,19 +37,10 @@ export function CollapsibleText({
 
   return (
     <div className={cn("min-w-0", className)}>
-      <div
-        id={contentId}
-        className={cn(
-          "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
-          collapsible && !expanded && collapsedLineClasses[collapsedLines],
-        )}
-      >
-        {text}
-      </div>
       {collapsible ? (
         <button
           type="button"
-          className="mt-2 inline-flex items-center gap-1 rounded-sm text-xs font-medium text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="mb-2 inline-flex items-center gap-1 rounded-sm text-xs font-medium text-foreground underline-offset-4 hover:text-primary hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           aria-expanded={expanded}
           aria-controls={contentId}
           onClick={() => setExpanded((current) => !current)}
@@ -61,6 +52,15 @@ export function CollapsibleText({
           />
         </button>
       ) : null}
+      <div
+        id={contentId}
+        className={cn(
+          "whitespace-pre-wrap break-words [overflow-wrap:anywhere]",
+          collapsible && !expanded && collapsedLineClasses[collapsedLines],
+        )}
+      >
+        {text}
+      </div>
     </div>
   );
 }
