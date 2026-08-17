@@ -23,6 +23,13 @@ interface FirstNovelHandoffInput {
   forceConfiguration: boolean;
 }
 
+interface QuickSetupProviderInitializationInput {
+  open: boolean;
+  providerKind: "builtin" | "custom";
+  providerSelected: boolean;
+  statusAvailable: boolean;
+}
+
 export function shouldOpenAutomaticSetupPrompt(input: AutomaticSetupPromptInput): boolean {
   return input.statusResolved && !input.readyForCreation && !input.dismissed;
 }
@@ -35,4 +42,11 @@ export function shouldOpenSetupPromptForRoute(input: RouteSetupPromptInput): boo
 
 export function shouldShowFirstNovelHandoff(input: FirstNovelHandoffInput): boolean {
   return input.configurationSucceeded && !input.forceConfiguration;
+}
+
+export function shouldInitializeQuickSetupProvider(input: QuickSetupProviderInitializationInput): boolean {
+  return input.open
+    && input.providerKind === "builtin"
+    && !input.providerSelected
+    && input.statusAvailable;
 }

@@ -28,7 +28,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useLLMStore } from "@/store/llmStore";
-import { shouldShowFirstNovelHandoff } from "./creationSetupState";
+import {
+  shouldInitializeQuickSetupProvider,
+  shouldShowFirstNovelHandoff,
+} from "./creationSetupState";
 
 interface QuickSetupDialogProps {
   open: boolean;
@@ -88,7 +91,12 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
     : selectedProvider?.models ?? [];
 
   useEffect(() => {
-    if (!props.open || form.provider || !props.status) {
+    if (!shouldInitializeQuickSetupProvider({
+      open: props.open,
+      providerKind: form.providerKind,
+      providerSelected: Boolean(form.provider),
+      statusAvailable: Boolean(props.status),
+    }) || !props.status) {
       return;
     }
     const preferred = props.status.providers.find(
@@ -104,7 +112,7 @@ export default function QuickSetupDialog(props: QuickSetupDialogProps) {
       baseURL: preferred.currentBaseURL || preferred.defaultBaseURL,
       model: preferred.currentModel || preferred.defaultModel,
     });
-  }, [form.provider, props.open, props.status]);
+  }, [form.provider, form.providerKind, props.open, props.status]);
 
   const completeMutation = useMutation({
     mutationFn: (payload: CompleteQuickSetupRequest) => completeQuickSetup(payload),

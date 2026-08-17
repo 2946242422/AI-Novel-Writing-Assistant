@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
+  shouldInitializeQuickSetupProvider,
   shouldOpenAutomaticSetupPrompt,
   shouldOpenSetupPromptForRoute,
   shouldShowFirstNovelHandoff,
@@ -63,5 +64,26 @@ test("shows the first novel handoff only after automatic configuration succeeds"
   assert.equal(shouldShowFirstNovelHandoff({
     configurationSucceeded: false,
     forceConfiguration: false,
+  }), false);
+});
+
+test("keeps a custom provider selected instead of restoring the preferred built-in provider", () => {
+  assert.equal(shouldInitializeQuickSetupProvider({
+    open: true,
+    providerKind: "builtin",
+    providerSelected: false,
+    statusAvailable: true,
+  }), true);
+  assert.equal(shouldInitializeQuickSetupProvider({
+    open: true,
+    providerKind: "custom",
+    providerSelected: false,
+    statusAvailable: true,
+  }), false);
+  assert.equal(shouldInitializeQuickSetupProvider({
+    open: true,
+    providerKind: "builtin",
+    providerSelected: true,
+    statusAvailable: true,
   }), false);
 });

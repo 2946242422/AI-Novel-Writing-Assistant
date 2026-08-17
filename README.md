@@ -149,12 +149,11 @@
 
 完整历史更新见 [docs/releases/release-notes.md](./docs/releases/release-notes.md)。
 
-### 2026-08-14
+### 2026-08-17
 
-- Windows 本地使用 Gemini 官方接口时，服务端会自动通过 `http://127.0.0.1:7897` 代理发起模型请求，无需在快捷配置窗口重复填写代理地址。
-- 如果本地代理端口不同，可以用 `GEMINI_PROXY_URL` 覆盖；需要让所有 OpenAI 兼容模型共用代理时，可以设置 `AI_NOVEL_PROXY_URL`。
-- 快捷配置的普通文本与结构化输出检测新增 30 秒超时；代理未启动或网络不可达时会返回明确错误，不再一直停留在检测中。
-- DeepSeek 等其他供应商默认保持直连，现有模型配置和旧项目无需迁移。
+- 快捷模型配置中的“自定义兼容接口”可以正常选中，并进入厂商名称、API 地址、Key 和模型信息填写步骤。
+- 已配置的 Gemini、DeepSeek 等默认厂商不会在选择自定义接口后自动覆盖当前选择。
+- 原有内置厂商配置和已经保存的自定义厂商继续兼容，无需重新配置。
 
 > 查看完整更新历史：[docs/releases/release-notes.md](./docs/releases/release-notes.md)
 
