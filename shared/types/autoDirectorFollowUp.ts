@@ -28,6 +28,7 @@ export type AutoDirectorFollowUpPriority = "P0" | "P1" | "P2";
 export type AutoDirectorActionRiskLevel = "low" | "medium" | "high";
 
 export type AutoDirectorMutationActionCode =
+  | "auto_resolve_and_continue"
   | "continue_auto_execution"
   | "continue_generic"
   | "auto_backfill_structured_outline"
@@ -212,6 +213,7 @@ export interface AutoDirectorActionRequest {
 export const AUTO_DIRECTOR_ACTION_RESULT_CODES = [
   "executed",
   "already_processed",
+  "model_attention_required",
   "state_changed",
   "forbidden",
   "failed",

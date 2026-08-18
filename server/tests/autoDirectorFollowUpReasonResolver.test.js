@@ -19,7 +19,7 @@ test("follow-up resolver prefers manual recovery over other signals", () => {
   assert.ok(result);
   assert.equal(result.reason, "manual_recovery_required");
   assert.equal(result.priority, "P0");
-  assert.deepEqual(actionCodes(result), ["continue_generic", "open_detail"]);
+  assert.deepEqual(actionCodes(result), ["auto_resolve_and_continue", "continue_generic", "open_detail"]);
   assert.equal(result.supportsBatch, false);
 });
 
@@ -45,10 +45,10 @@ test("follow-up resolver returns replan metadata", () => {
   assert.ok(result);
   assert.equal(result.reason, "replan_required");
   assert.equal(result.priority, "P1");
-  assert.deepEqual(actionCodes(result), ["continue_auto_execution", "go_replan", "open_detail"]);
+  assert.deepEqual(actionCodes(result), ["auto_resolve_and_continue", "continue_auto_execution", "go_replan", "open_detail"]);
   assert.equal(result.availableActions[0].riskLevel, "low");
   assert.equal(result.availableActions[0].requiresConfirm, false);
-  assert.equal(result.availableActions[0].label, "让 AI 处理并继续");
+  assert.equal(result.availableActions[0].label, "AI 自动处理并继续");
   assert.equal(result.supportsBatch, false);
 });
 
@@ -61,8 +61,8 @@ test("manual recovery at a replan checkpoint keeps the single AI-first action", 
 
   assert.ok(result);
   assert.equal(result.reason, "manual_recovery_required");
-  assert.equal(result.availableActions[0].code, "continue_generic");
-  assert.equal(result.availableActions[0].label, "让 AI 处理并继续");
+  assert.equal(result.availableActions[0].code, "auto_resolve_and_continue");
+  assert.equal(result.availableActions[0].label, "AI 自动处理并继续");
 });
 
 test("follow-up resolver keeps failed replan checkpoints on recovery actions", () => {
@@ -74,7 +74,7 @@ test("follow-up resolver keeps failed replan checkpoints on recovery actions", (
   assert.ok(result);
   assert.equal(result.reason, "replan_required");
   assert.equal(result.priority, "P0");
-  assert.deepEqual(actionCodes(result), ["continue_auto_execution", "go_replan", "open_detail"]);
+  assert.deepEqual(actionCodes(result), ["auto_resolve_and_continue", "continue_auto_execution", "go_replan", "open_detail"]);
 });
 
 test("follow-up resolver exposes chapter-batch auto-execution metadata", () => {
@@ -87,13 +87,13 @@ test("follow-up resolver exposes chapter-batch auto-execution metadata", () => {
   assert.ok(result);
   assert.equal(result.reason, "chapter_batch_execution_pending");
   assert.equal(result.priority, "P2");
-  assert.equal(result.availableActions[0].code, "continue_auto_execution");
+  assert.equal(result.availableActions[0].code, "auto_resolve_and_continue");
   assert.equal(result.availableActions[0].kind, "mutation");
   assert.equal(result.availableActions[0].riskLevel, "low");
   assert.equal(result.availableActions[0].requiresConfirm, false);
-  assert.match(result.availableActions[0].label, /11-20/);
-  assert.deepEqual(actionCodes(result), ["continue_auto_execution", "open_detail"]);
-  assert.deepEqual(result.batchActionCodes, ["continue_auto_execution"]);
+  assert.equal(result.availableActions[0].label, "AI 自动处理并继续");
+  assert.deepEqual(actionCodes(result), ["auto_resolve_and_continue", "continue_auto_execution", "open_detail"]);
+  assert.deepEqual(result.batchActionCodes, ["auto_resolve_and_continue"]);
   assert.equal(result.supportsBatch, true);
 });
 
@@ -105,7 +105,7 @@ test("follow-up resolver keeps waiting chapter batches in auto-execution continu
 
   assert.ok(result);
   assert.equal(result.reason, "chapter_batch_execution_pending");
-  assert.deepEqual(actionCodes(result), ["continue_auto_execution", "open_detail"]);
+  assert.deepEqual(actionCodes(result), ["auto_resolve_and_continue", "continue_auto_execution", "open_detail"]);
 });
 
 test("follow-up resolver exposes retry metadata for failed tasks", () => {
@@ -117,7 +117,7 @@ test("follow-up resolver exposes retry metadata for failed tasks", () => {
   assert.ok(result);
   assert.equal(result.reason, "runtime_failed");
   assert.equal(result.priority, "P0");
-  assert.deepEqual(actionCodes(result), ["retry_with_task_model", "retry_with_route_model", "open_detail"]);
-  assert.deepEqual(result.batchActionCodes, ["retry_with_task_model"]);
+  assert.deepEqual(actionCodes(result), ["auto_resolve_and_continue", "retry_with_task_model", "retry_with_route_model", "open_detail"]);
+  assert.deepEqual(result.batchActionCodes, ["auto_resolve_and_continue"]);
   assert.equal(result.supportsBatch, true);
 });

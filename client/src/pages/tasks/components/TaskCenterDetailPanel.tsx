@@ -1,6 +1,7 @@
 import type { DirectorDashboardView, DirectorRuntimeProjection } from "@ai-novel/shared/types/directorRuntime";
 import type { NovelWorkflowMilestone } from "@ai-novel/shared/types/novelWorkflow";
 import type { UnifiedTaskDetail, UnifiedTaskStep } from "@ai-novel/shared/types/task";
+import type { ModelAttentionIssue } from "@ai-novel/shared/types/modelAttention";
 import { Link } from "react-router-dom";
 import DirectorRuntimeProjectionCard from "@/components/autoDirector/DirectorRuntimeProjectionCard";
 import {
@@ -11,6 +12,7 @@ import {
   type TaskQueueSeverity,
 } from "@/components/taskQueue";
 import { Button } from "@/components/ui/button";
+import { CollapsibleText } from "@/components/common/CollapsibleText";
 import { WorkspaceStateNotice, type WorkspaceTone } from "@/components/workspace";
 import TaskCenterDetailSummary from "./TaskCenterDetailSummary";
 import TaskCenterMilestoneHistory from "./TaskCenterMilestoneHistory";
@@ -47,6 +49,7 @@ interface TaskCenterDetailPanelProps {
   failureAction?: InlineTaskAction | null;
   priorityFailureActions?: InlineTaskAction[];
   failureIsQualityReminder: boolean;
+  modelAttention?: ModelAttentionIssue | null;
   actions: TaskCenterActionSpec[];
   steps: UnifiedTaskStep[];
   milestones: NovelWorkflowMilestone[];
@@ -54,6 +57,47 @@ interface TaskCenterDetailPanelProps {
 
 export default function TaskCenterDetailPanel(props: TaskCenterDetailPanelProps) {
   const task = props.task;
+  const hasAutomaticRecovery = Boolean(props.priorityFailureActions?.length);
+  const hasFailureSignal = Boolean(task && (hasAutomaticRecovery
+    || props.modelAttention
+    || task.failureCode
+    || task.failureSummary
+    || (task.status === "failed" && task.lastError)
+  ));
+  const failureTitle = props.modelAttention?.title
+    ?? (props.isAutoDirectorTask ? "AI 可自动处理" : props.failureIsQualityReminder ? "质量提醒" : "任务阻塞");
+  const failureDescription = props.modelAttention?.message
+    ?? (props.isAutoDirectorTask
+      ? "AI 会判断是继续修复、重规划、从检查点恢复还是重新执行，并在处理后自动续写。"
+      : task?.failureSummary ?? task?.lastError ?? "任务记录了需要处理的状态。");
+
+  const actionRows = task ? (
+    <div className="space-y-2">
+      {(props.isAutoDirectorTask ? [] : props.actions).map((action) => (
+        <TaskQueueActionRow
+          key={action.key}
+          title={action.title}
+          consequence={action.consequence}
+          tone={action.tone}
+          action={(
+            <Button
+              size="sm"
+              variant={action.variant ?? "outline"}
+              disabled={action.disabled}
+              onClick={action.onClick}
+            >
+              {action.label}
+            </Button>
+          )}
+        />
+      ))}
+      <TaskQueueActionRow
+        title="打开来源页面"
+        consequence="只打开任务来源，不会改变任务状态。"
+        action={<Button asChild size="sm" variant="outline"><Link to={task.sourceRoute}>打开来源页面</Link></Button>}
+      />
+    </div>
+  ) : null;
 
   return (
     <TaskQueueSection
@@ -99,12 +143,12 @@ export default function TaskCenterDetailPanel(props: TaskCenterDetailPanelProps)
               />
             ) : null}
 
-            {task.failureCode || task.failureSummary ? (
+            {hasFailureSignal ? (
               <TaskQueueImpactNotice
-                severity={props.failureIsQualityReminder ? "quality" : "blocking"}
-                title={props.failureIsQualityReminder ? "质量提醒" : "任务阻塞"}
-                description={task.failureSummary ?? "任务记录了需要处理的失败状态。"}
-                action={props.priorityFailureActions?.length || props.failureAction ? (
+                severity={props.modelAttention ? "blocking" : props.failureIsQualityReminder ? "quality" : "blocking"}
+                title={failureTitle}
+                description={failureDescription}
+                action={!props.modelAttention && (props.priorityFailureActions?.length || props.failureAction) ? (
                   <div className="flex flex-wrap items-center justify-end gap-2">
                     {props.priorityFailureActions?.map((action, index) => (
                       <Button
@@ -127,59 +171,34 @@ export default function TaskCenterDetailPanel(props: TaskCenterDetailPanelProps)
               />
             ) : null}
 
-            {task.lastError && !props.failureIsQualityReminder && !task.failureCode && !task.failureSummary ? (
-              <WorkspaceStateNotice tone="danger" title="最近一次执行失败" description={task.lastError} />
-            ) : null}
-
-            {task.kind === "novel_workflow" && task.checkpointSummary ? (
-              <WorkspaceStateNotice compact title="最近检查点" description={task.checkpointSummary} />
-            ) : null}
-
             {props.isAutoDirectorTask ? <DirectorRuntimeProjectionCard projection={props.runtimeProjection} /> : null}
 
             {props.isAutoDirectorTask ? (
-              <WorkspaceStateNotice
-                compact
-                tone="info"
-                title="导演任务操作入口"
-                description="任务阻塞提示提供常用恢复和质量修复；切换模型和详细推进策略可在小说页面的执行详情中处理。"
-              />
-            ) : null}
-
-            {props.actions.length > 0 ? (
-              <div className="space-y-2">
-                <div className="font-medium">可执行动作</div>
-                {props.actions.map((action) => (
-                  <TaskQueueActionRow
-                    key={action.key}
-                    title={action.title}
-                    consequence={action.consequence}
-                    tone={action.tone}
-                    action={(
-                      <Button
-                        size="sm"
-                        variant={action.variant ?? "outline"}
-                        disabled={action.disabled}
-                        onClick={action.onClick}
-                      >
-                        {action.label}
-                      </Button>
-                    )}
-                  />
-                ))}
-                <TaskQueueActionRow
-                  title="打开来源页面"
-                  consequence="只打开任务来源，不会改变任务状态。"
-                  action={<Button asChild size="sm" variant="outline"><Link to={task.sourceRoute}>打开来源页面</Link></Button>}
-                />
-              </div>
-            ) : (
-              <TaskQueueActionRow
-                title="打开来源页面"
-                consequence="只打开任务来源，不会改变任务状态。"
-                action={<Button asChild size="sm" variant="outline"><Link to={task.sourceRoute}>打开来源页面</Link></Button>}
-              />
-            )}
+              <details className="group rounded-xl border border-border/60 bg-muted/10">
+                <summary className="flex cursor-pointer list-none items-center justify-between px-3 py-3 text-sm font-medium marker:hidden">
+                  <span>高级详情</span>
+                  <span className="text-xs font-normal text-muted-foreground group-open:hidden">展开</span>
+                  <span className="hidden text-xs font-normal text-muted-foreground group-open:inline">收起</span>
+                </summary>
+                <div className="space-y-3 border-t border-border/50 px-3 py-3">
+                  {task.checkpointSummary ? <WorkspaceStateNotice compact title="最近检查点" description={task.checkpointSummary} /> : null}
+                  {task.lastError ? (
+                    <div className="rounded-xl border border-destructive/20 bg-destructive/[0.04] px-3 py-3">
+                      <div className="text-xs font-medium text-destructive">技术日志（高级）</div>
+                      <CollapsibleText
+                        className="mt-1 text-xs text-destructive/85"
+                        text={task.lastError}
+                        collapsedLines={3}
+                        characterThreshold={240}
+                        expandLabel="展开完整技术日志"
+                        collapseLabel="收起技术日志"
+                      />
+                    </div>
+                  ) : null}
+                  {actionRows}
+                </div>
+              </details>
+            ) : actionRows}
 
             <details className="group border-t border-border/35 pt-3">
               <summary className="flex cursor-pointer list-none items-center justify-between text-sm font-medium marker:hidden">

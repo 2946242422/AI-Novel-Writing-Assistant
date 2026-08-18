@@ -67,7 +67,7 @@ export const DIRECTOR_ISSUE_CATALOG: readonly DirectorIssueCatalogEntry[] = [
   { code: "quality.acceptance_unavailable", category: "quality", label: "章节接收检查不可用", defaultAction: "continue_with_warning", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "continue_with_warning", lockedReason: "全书模式会保留可用正文并安排后续复查。" },
   { code: "quality.obligation_gap", category: "quality", label: "本章义务仍有缺口", defaultAction: "continue_with_warning", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "continue_with_warning", lockedReason: "全书模式会把局部义务缺口作为质量债继续。" },
   { code: "quality.local_repair_failed", category: "quality", label: "局部修复未安全应用", defaultAction: "continue_with_warning", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "continue_with_warning", lockedReason: "全书模式已有可用正文时会记录质量债并继续。" },
-  { code: "quality.loop_exhausted", category: "quality", label: "同类质量修复已耗尽", defaultAction: "pause_for_manual", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "pause_for_manual" },
+  { code: "quality.loop_exhausted", category: "quality", label: "同类质量修复已耗尽", defaultAction: "continue_with_warning", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "continue_with_warning", lockedReason: "全书模式已有可用正文时会登记质量债并继续。" },
   { code: "quality.replan_required", category: "quality", label: "相邻章节需要重规划", defaultAction: "auto_replan", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "pause_for_manual" },
   { code: "quality.replan_loop", category: "quality", label: "重规划重复循环", defaultAction: "continue_with_warning", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "pause_for_manual" },
   { code: "runtime.model_unavailable", category: "runtime", label: "创作模型不可用", defaultAction: "auto_retry", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "pause_for_manual" },
@@ -229,7 +229,6 @@ export function resolveDirectorIssueDecision(input: {
   if (fullBookWithUsableOutput && (
     entry.category === "quality"
     && input.occurrence.issueCode !== "quality.replan_required"
-    && input.occurrence.issueCode !== "quality.loop_exhausted"
   )) {
     action = action === "auto_retry" ? action : "continue_with_warning";
     locked = true;

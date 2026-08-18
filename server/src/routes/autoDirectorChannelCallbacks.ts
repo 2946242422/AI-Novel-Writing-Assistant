@@ -17,6 +17,7 @@ const dingtalkCallbackBodySchema = z.object({
   eventId: z.string().trim().min(1),
   taskId: z.string().trim().min(1),
   actionCode: z.enum([
+    "auto_resolve_and_continue",
     "continue_auto_execution",
     "retry_with_task_model",
   ]),
@@ -28,6 +29,7 @@ const wecomMarkdownQuerySchema = z.object({
   eventId: z.string().trim().min(1),
   taskId: z.string().trim().min(1),
   actionCode: z.enum([
+    "auto_resolve_and_continue",
     "continue_auto_execution",
     "retry_with_task_model",
   ]),
@@ -61,7 +63,7 @@ function verifyWeComMarkdownSignature(input: {
   callbackId: string;
   eventId: string;
   taskId: string;
-  actionCode: "continue_auto_execution" | "retry_with_task_model";
+  actionCode: "auto_resolve_and_continue" | "continue_auto_execution" | "retry_with_task_model";
   signature: string;
   callbackToken: string;
 }): void {

@@ -13,6 +13,9 @@ interface AutoDirectorFollowUpBatchBarProps {
 }
 
 function formatBatchActionLabel(actionCode: AutoDirectorMutationActionCode | null): string {
+  if (actionCode === "auto_resolve_and_continue") {
+    return "批量交给 AI 自动处理";
+  }
   if (actionCode === "continue_auto_execution") {
     return "批量低风险继续";
   }
@@ -38,7 +41,9 @@ export function AutoDirectorFollowUpBatchBar({
     return null;
   }
   const selectedSection = getSelectedSection(selectedItems);
-  const consequence = batchActionCode === "continue_auto_execution"
+  const consequence = batchActionCode === "auto_resolve_and_continue"
+    ? "AI 会逐项判断修复、重规划或从检查点恢复；需要处理模型配置的任务会单独保留。"
+    : batchActionCode === "continue_auto_execution"
     ? "只向所选导演任务分别提交继续命令，不会跨任务合并状态。"
     : batchActionCode === "retry_with_task_model"
       ? "每个任务都会使用各自保存的模型重试，并保持对应的导演任务身份。"
@@ -56,7 +61,7 @@ export function AutoDirectorFollowUpBatchBar({
             清空
           </Button>
           <Button size="sm" className="w-full md:w-auto" onClick={() => void onExecute()} disabled={!batchActionCode || loading}>
-            执行批量动作
+            AI 自动处理所选任务
           </Button>
           </div>
         )}

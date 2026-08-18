@@ -1176,7 +1176,12 @@ export default function NovelEdit() {
       }
       setDirectorTaskId(result?.directorTaskId ?? result?.taskId ?? input.directorTaskId ?? actionTargetDirectorTaskId);
       await invalidateAutoDirectorTaskState(result?.directorTaskId ?? result?.taskId ?? input.directorTaskId ?? actionTargetDirectorTaskId);
-      if (result?.code === "failed" || result?.code === "forbidden") {
+      if (
+        result?.code === "failed"
+        || result?.code === "forbidden"
+        || result?.code === "state_changed"
+        || result?.code === "model_attention_required"
+      ) {
         toast.error(result.message);
         return;
       }

@@ -61,7 +61,7 @@ test("auto director channel callback route executes dingtalk low-risk actions th
         callbackId: "cb_1",
         eventId: "evt_1",
         taskId: "task_1",
-        actionCode: "continue_auto_execution",
+        actionCode: "auto_resolve_and_continue",
       }),
     });
 
@@ -72,7 +72,7 @@ test("auto director channel callback route executes dingtalk low-risk actions th
     assert.equal(payload.data.channelType, "dingtalk");
     assert.deepEqual(calls, [{
       taskId: "task_1",
-      actionCode: "continue_auto_execution",
+      actionCode: "auto_resolve_and_continue",
       source: "dingtalk",
       operatorId: "user_1",
       idempotencyKey: "dingtalk:cb_1",

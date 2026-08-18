@@ -132,10 +132,17 @@ test("task center promotes the safest available auto-director recovery action", 
         riskLevel: "low",
         requiresConfirm: false,
       },
+      {
+        code: "auto_resolve_and_continue",
+        kind: "mutation",
+        label: "AI 自动处理并继续",
+        riskLevel: "low",
+        requiresConfirm: false,
+      },
     ],
   });
 
-  assert.equal(action?.code, "retry_with_task_model");
+  assert.equal(action?.code, "auto_resolve_and_continue");
 });
 
 test("task center resolves the current pipeline checkpoint as quality repair route", () => {

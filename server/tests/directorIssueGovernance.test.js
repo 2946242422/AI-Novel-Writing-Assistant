@@ -93,12 +93,13 @@ test("explicit replans use automatic adjacent planning while data safety issues 
   }
 });
 
-test("exhausted repeated quality handling pauses even when a usable draft exists", () => {
+test("exhausted repeated quality handling records debt and continues when a usable draft exists", () => {
   const decision = resolveDirectorIssueDecision({
     occurrence: occurrence("quality.loop_exhausted"),
     policy: DEFAULT_DIRECTOR_ISSUE_POLICY,
   });
-  assert.equal(decision.action, "pause_for_manual");
+  assert.equal(decision.action, "continue_with_warning");
+  assert.equal(decision.locked, true);
 });
 
 test("automatic replan pauses after its retry budget is exhausted", () => {

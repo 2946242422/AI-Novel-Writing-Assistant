@@ -182,6 +182,10 @@ export function AutoDirectorFollowUpListPanel(props: AutoDirectorFollowUpListPan
             const checked = props.selectedTaskIds.includes(item.directorTaskId);
             const selected = props.selectedTaskId === item.directorTaskId;
             const tone = getFollowUpTone(item);
+            const hasAutomaticRecovery = item.availableActions.some((action) => action.code === "auto_resolve_and_continue");
+            const summary = hasAutomaticRecovery
+              ? "AI 可以自动选择修复、重规划、恢复或重试方式并继续。"
+              : item.followUpSummary;
             return (
               <div key={itemKey} className="relative">
                 <TaskQueueItem
@@ -193,8 +197,8 @@ export function AutoDirectorFollowUpListPanel(props: AutoDirectorFollowUpListPan
                 <div className={AUTO_DIRECTOR_MOBILE_CLASSES.followUpListHeader}>
                   <div className="min-w-0 space-y-1">
                     <div className={`${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText} font-medium`}>{item.novelTitle}</div>
-                    <div className={`${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText} line-clamp-4 text-sm text-muted-foreground`}>{item.followUpSummary}</div>
-                    {shouldCollapseText(item.followUpSummary) ? (
+                    <div className={`${AUTO_DIRECTOR_MOBILE_CLASSES.wrapText} line-clamp-4 text-sm text-muted-foreground`}>{summary}</div>
+                    {shouldCollapseText(summary) ? (
                       <div className="text-xs text-muted-foreground">已折叠长日志，选择后可在右侧展开查看。</div>
                     ) : null}
                   </div>

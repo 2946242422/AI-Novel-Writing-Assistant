@@ -82,7 +82,7 @@ export async function executeAutoDirectorFollowUpAction(
 }
 
 export async function executeAutoDirectorFollowUpBatchAction(input: {
-  actionCode: Extract<AutoDirectorMutationActionCode, "continue_auto_execution" | "retry_with_task_model">;
+  actionCode: Extract<AutoDirectorMutationActionCode, "auto_resolve_and_continue" | "continue_auto_execution" | "retry_with_task_model">;
   taskIds: string[];
   batchRequestKey: string;
 }) {

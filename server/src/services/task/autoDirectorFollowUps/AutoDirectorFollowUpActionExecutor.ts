@@ -7,6 +7,7 @@ import type {
 } from "@ai-novel/shared/types/autoDirectorFollowUp";
 import type { AutoDirectorFollowUpSection } from "@ai-novel/shared/types/autoDirectorValidation";
 import type { NovelWorkflowCheckpoint } from "@ai-novel/shared/types/novelWorkflow";
+import { resolveModelAttentionIssue } from "@ai-novel/shared/types/modelAttention";
 import { prisma } from "../../../db/prisma";
 import { AppError } from "../../../middleware/errorHandler";
 import { resolveModel, type TaskType } from "../../../llm/modelRouter";
@@ -30,23 +31,25 @@ type WorkflowTaskRow = NonNullable<Awaited<ReturnType<NovelWorkflowService["getT
 const EXECUTED_ACTION_CACHE = new Map<string, AutoDirectorActionExecutionResult>();
 
 const BATCH_ALLOWED_ACTIONS = new Set<AutoDirectorMutationActionCode>([
+  "auto_resolve_and_continue",
   "continue_auto_execution",
   "retry_with_task_model",
 ]);
 
-const BATCH_SECTION_ACTIONS: Partial<Record<AutoDirectorFollowUpSection, AutoDirectorMutationActionCode>> = {
-  pending: "continue_auto_execution",
-  exception: "retry_with_task_model",
+const BATCH_SECTION_ACTIONS: Partial<Record<AutoDirectorFollowUpSection, ReadonlySet<AutoDirectorMutationActionCode>>> = {
+  needs_validation: new Set(["auto_resolve_and_continue"]),
+  pending: new Set(["auto_resolve_and_continue", "continue_auto_execution"]),
+  exception: new Set(["auto_resolve_and_continue", "retry_with_task_model"]),
 };
 
-function getAllowedBatchActionForRow(row: WorkflowTaskRow): AutoDirectorMutationActionCode | null {
+function getAllowedBatchActionsForRow(row: WorkflowTaskRow): ReadonlySet<AutoDirectorMutationActionCode> {
   const section = resolveAutoDirectorFollowUpSection({
     status: row.status,
     checkpointType: toCheckpointType(row.checkpointType),
     pendingManualRecovery: row.pendingManualRecovery,
     validationResult: extractBlockedAutoDirectorValidationResult(row.seedPayloadJson),
   });
-  return BATCH_SECTION_ACTIONS[section] ?? null;
+  return BATCH_SECTION_ACTIONS[section] ?? new Set();
 }
 
 function isMissingTableError(error: unknown): boolean {
@@ -215,6 +218,31 @@ export class AutoDirectorFollowUpActionExecutor {
       throw new AppError("Only auto director workflow tasks are supported.", 400);
     }
 
+    if (input.actionCode === "auto_resolve_and_continue") {
+      try {
+        return await this.executeAutomaticRecovery(row, input, executedCacheKey, healed);
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : "";
+        const modelAttention = resolveModelAttentionIssue({ lastError: errorMessage });
+        const result: AutoDirectorActionExecutionResult = {
+          directorTaskId: input.taskId,
+          taskId: input.taskId,
+          actionCode: input.actionCode,
+          code: modelAttention ? "model_attention_required" : "failed",
+          message: modelAttention?.message
+            ?? "AI 自动处理暂未完成，已保留最近安全进度。请稍后再次点击。",
+          task: await this.safeGetTaskDetail(input.taskId),
+        };
+        await this.recordActionLog(mergeActionMetadata(input, {
+          automaticRecovery: {
+            outcome: modelAttention ? "model_attention_required" : "failed",
+            ...(modelAttention ? { kind: modelAttention.kind } : {}),
+          },
+        }), result);
+        return result;
+      }
+    }
+
     if (input.actionCode === "safe_fix_validation") {
       return this.executeSafeFix(row, input, executedCacheKey, healed);
     }
@@ -223,8 +251,8 @@ export class AutoDirectorFollowUpActionExecutor {
     }
 
     if (input.metadata?.batchAction === true) {
-      const allowedBatchAction = getAllowedBatchActionForRow(row);
-      if (allowedBatchAction !== input.actionCode) {
+      const allowedBatchActions = getAllowedBatchActionsForRow(row);
+      if (!allowedBatchActions.has(input.actionCode)) {
         const result: AutoDirectorActionExecutionResult = {
           directorTaskId: input.taskId,
           taskId: input.taskId,
@@ -350,7 +378,9 @@ export class AutoDirectorFollowUpActionExecutor {
     }
 
     const successCount = itemResults.filter((item) => item.code === "executed").length;
-    const failureCount = itemResults.filter((item) => item.code === "failed").length;
+    const failureCount = itemResults.filter((item) => (
+      item.code === "failed" || item.code === "model_attention_required"
+    )).length;
     const skippedCount = itemResults.filter((item) => (
       item.code === "already_processed"
       || item.code === "state_changed"
@@ -407,6 +437,143 @@ export class AutoDirectorFollowUpActionExecutor {
         .filter((action): action is typeof action & { kind: "mutation" } => action.kind === "mutation")
         .map((action) => action.code as AutoDirectorMutationActionCode),
     );
+  }
+
+  private async executeAutomaticRecovery(
+    row: WorkflowTaskRow,
+    input: AutoDirectorActionRequest,
+    executedCacheKey: string,
+    healed: boolean,
+  ): Promise<AutoDirectorActionExecutionResult> {
+    const modelAttention = resolveModelAttentionIssue({ lastError: row.lastError });
+    if (modelAttention) {
+      const result: AutoDirectorActionExecutionResult = {
+        directorTaskId: input.taskId,
+        taskId: input.taskId,
+        actionCode: input.actionCode,
+        code: "model_attention_required",
+        message: modelAttention.message,
+        task: await this.safeGetTaskDetail(input.taskId),
+      };
+      await this.recordActionLog(mergeActionMetadata(input, {
+        automaticRecovery: { outcome: "model_attention_required", kind: modelAttention.kind },
+      }), result);
+      return result;
+    }
+
+    const validationResult = extractBlockedAutoDirectorValidationResult(row.seedPayloadJson);
+    if (validationResult && !validationResult.allowed) {
+      const canBackfill = validationResult.requiredActions.some((action) => (
+        action.code === "auto_backfill_structured_outline"
+        && action.safeToAutoFix === true
+        && action.riskLevel === "low"
+      ));
+      if (canBackfill) {
+        const result = await this.executeStructuredBackfill(row, input, executedCacheKey, healed);
+        return { ...result, actionCode: input.actionCode };
+      }
+      if (canApplyAutoDirectorSafeFix(validationResult)) {
+        const applied = await applyAutoDirectorSafeFix({
+          taskId: input.taskId,
+          seedPayloadJson: row.seedPayloadJson,
+          validationResult,
+          healed,
+        });
+        await this.novelDirectorService.continueTask(input.taskId, {
+          continuationMode: "resume",
+          forceResume: true,
+        });
+        const result: AutoDirectorActionExecutionResult = {
+          directorTaskId: input.taskId,
+          taskId: input.taskId,
+          actionCode: input.actionCode,
+          code: "executed",
+          message: "AI 已完成安全修复，并从最近进度继续执行。",
+          task: await this.safeGetTaskDetail(input.taskId),
+        };
+        EXECUTED_ACTION_CACHE.set(executedCacheKey, result);
+        await this.recordActionLog(mergeActionMetadata(input, {
+          automaticRecovery: { outcome: "safe_fix_and_continue", safeActionCodes: applied.safeActionCodes },
+        }), result);
+        return result;
+      }
+      const result: AutoDirectorActionExecutionResult = {
+        directorTaskId: input.taskId,
+        taskId: input.taskId,
+        actionCode: input.actionCode,
+        code: "forbidden",
+        message: "当前问题涉及受保护内容或数据安全，AI 不能自动修改。请展开高级详情查看。",
+        task: await this.safeGetTaskDetail(input.taskId),
+      };
+      await this.recordActionLog(input, result);
+      return result;
+    }
+
+    if (row.status === "queued" || row.status === "running") {
+      const result: AutoDirectorActionExecutionResult = {
+        directorTaskId: input.taskId,
+        taskId: input.taskId,
+        actionCode: input.actionCode,
+        code: "already_processed",
+        message: "AI 正在处理该任务，无需重复操作。",
+        task: await this.safeGetTaskDetail(input.taskId),
+      };
+      EXECUTED_ACTION_CACHE.set(executedCacheKey, result);
+      await this.recordActionLog(input, result);
+      return result;
+    }
+
+    let selectedAction: AutoDirectorMutationActionCode | null = null;
+    if (row.pendingManualRecovery) {
+      selectedAction = "continue_generic";
+    } else if (
+      row.checkpointType === "replan_required"
+      || row.currentItemKey === "quality_repair"
+      || row.currentStage?.includes("质量")
+    ) {
+      selectedAction = "continue_auto_execution";
+    } else if (row.status === "failed" || row.status === "cancelled") {
+      selectedAction = "retry_with_task_model";
+    } else if (row.status === "waiting_approval" && row.checkpointType !== "candidate_selection_required") {
+      selectedAction = "continue_auto_execution";
+    }
+
+    if (!selectedAction) {
+      const result: AutoDirectorActionExecutionResult = {
+        directorTaskId: input.taskId,
+        taskId: input.taskId,
+        actionCode: input.actionCode,
+        code: "forbidden",
+        message: row.checkpointType === "candidate_selection_required"
+          ? "这一步需要你确认小说方向，AI 不会替你选择。"
+          : "当前任务没有可安全自动执行的恢复动作。",
+        task: await this.safeGetTaskDetail(input.taskId),
+      };
+      await this.recordActionLog(input, result);
+      return result;
+    }
+
+    const task = await this.executeMutationAction(row, {
+      ...input,
+      actionCode: selectedAction,
+      metadata: {
+        ...input.metadata,
+        automaticRecovery: { selectedAction },
+      },
+    });
+    const result: AutoDirectorActionExecutionResult = {
+      directorTaskId: input.taskId,
+      taskId: input.taskId,
+      actionCode: input.actionCode,
+      code: "executed",
+      message: "AI 已自动选择恢复方式，并从最近安全进度继续执行。",
+      task,
+    };
+    EXECUTED_ACTION_CACHE.set(executedCacheKey, result);
+    await this.recordActionLog(mergeActionMetadata(input, {
+      automaticRecovery: { outcome: "continued", selectedAction },
+    }), result);
+    return result;
   }
 
   private async executeSafeFix(

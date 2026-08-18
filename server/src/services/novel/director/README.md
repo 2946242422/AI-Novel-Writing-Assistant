@@ -65,3 +65,5 @@ import {
 新代码不应新增 `DirectorRuntimeCommand` / `DirectorRuntimeExecution` 写入路径。需要展示旧任务历史时，可以通过 runtime projection 读取这些历史行；需要排队执行时，必须通过 `DirectorCommandService` 创建 `DirectorRunCommand`。
 
 问题治理动作必须由真实执行边界确认后再登记 `issue_action_applied`。命令租约恢复负责重新排队、人工恢复或失败终态，流水线和熔断器分别负责自己的控制流；这些模块不能只记录策略决定后继续使用旧分支。
+
+用户可见的普通恢复统一为 `auto_resolve_and_continue`。`AutoDirectorFollowUpActionExecutor` 根据当前任务事实选择安全修复、结构化回填、质量重规划继续、原模型重试或检查点恢复。只有明确模型鉴权/额度/限流/不可用返回 `model_attention_required`；数据完整性、受保护内容和无可用正文继续由安全门禁阻断。旧动作码仅作为历史 API 和通道回调兼容。

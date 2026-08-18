@@ -9,6 +9,7 @@ import type {
 import { buildWorkflowResumeAction } from "../novelWorkflowExplainability";
 
 const CHANNEL_ACTION_CODES = new Set<AutoDirectorActionCode>([
+  "auto_resolve_and_continue",
   "continue_auto_execution",
   "retry_with_task_model",
   "open_detail",
@@ -63,6 +64,15 @@ function getContinueLabel(input: AutoDirectorFollowUpResolverInput, fallback: st
   return buildWorkflowResumeAction(input.status, input.checkpointType ?? null, input.executionScopeLabel) ?? fallback;
 }
 
+function automaticRecoveryAction(): AutoDirectorAction {
+  return mutationAction({
+    code: "auto_resolve_and_continue",
+    label: "AI 自动处理并继续",
+    riskLevel: "low",
+    requiresConfirm: false,
+  });
+}
+
 function finalizeResolvedReason(input: {
   reason: AutoDirectorFollowUpReason;
   priority: AutoDirectorResolvedFollowUpReason["priority"];
@@ -104,6 +114,7 @@ export function resolveAutoDirectorFollowUpReason(
       reason: "validation_required",
       priority: "P0",
       availableActions: [
+        ...((hasStructuredBackfill || hasSafeFix) ? [automaticRecoveryAction()] : []),
         navigationAction({
           code: "open_detail",
           label: "查看校验结果",
@@ -150,6 +161,7 @@ export function resolveAutoDirectorFollowUpReason(
       reason: "manual_recovery_required",
       priority: "P0",
       availableActions: [
+        automaticRecoveryAction(),
         mutationAction({
           code: "continue_generic",
           label: input.checkpointType === "replan_required" ? "让 AI 处理并继续" : "恢复任务",
@@ -185,6 +197,7 @@ export function resolveAutoDirectorFollowUpReason(
       reason: "replan_required",
       priority: input.status === "failed" ? "P0" : "P1",
       availableActions: [
+        automaticRecoveryAction(),
         mutationAction({
           code: "continue_auto_execution",
           label: "让 AI 处理并继续",
@@ -208,6 +221,7 @@ export function resolveAutoDirectorFollowUpReason(
       reason: "runtime_failed",
       priority: "P0",
       availableActions: [
+        automaticRecoveryAction(),
         mutationAction({
           code: "retry_with_task_model",
           label: "按任务模型重试",
@@ -225,7 +239,7 @@ export function resolveAutoDirectorFollowUpReason(
           label: "查看详情",
         }),
       ],
-      batchActionCodes: ["retry_with_task_model"],
+      batchActionCodes: ["auto_resolve_and_continue"],
     });
   }
 
@@ -234,6 +248,7 @@ export function resolveAutoDirectorFollowUpReason(
       reason: "runtime_cancelled",
       priority: "P1",
       availableActions: [
+        automaticRecoveryAction(),
         mutationAction({
           code: "retry_with_task_model",
           label: getContinueLabel(input, "从最近检查点恢复"),
@@ -251,7 +266,7 @@ export function resolveAutoDirectorFollowUpReason(
           label: "查看详情",
         }),
       ],
-      batchActionCodes: ["retry_with_task_model"],
+      batchActionCodes: ["auto_resolve_and_continue"],
     });
   }
 
@@ -281,6 +296,7 @@ export function resolveAutoDirectorFollowUpReason(
       reason: "chapter_batch_execution_pending",
       priority: "P2",
       availableActions: [
+        automaticRecoveryAction(),
         mutationAction({
           code: "continue_auto_execution",
           label: getContinueLabel(input, "继续自动执行当前范围"),
@@ -292,7 +308,7 @@ export function resolveAutoDirectorFollowUpReason(
           label: "查看详情",
         }),
       ],
-      batchActionCodes: ["continue_auto_execution"],
+      batchActionCodes: ["auto_resolve_and_continue"],
     });
   }
 
@@ -301,6 +317,7 @@ export function resolveAutoDirectorFollowUpReason(
       reason: "quality_repair_pending",
       priority: "P2",
       availableActions: [
+        automaticRecoveryAction(),
         mutationAction({
           code: "continue_auto_execution",
           label: getContinueLabel(input, "继续自动执行当前范围"),
@@ -312,7 +329,7 @@ export function resolveAutoDirectorFollowUpReason(
           label: "查看详情",
         }),
       ],
-      batchActionCodes: ["continue_auto_execution"],
+      batchActionCodes: ["auto_resolve_and_continue"],
     });
   }
 

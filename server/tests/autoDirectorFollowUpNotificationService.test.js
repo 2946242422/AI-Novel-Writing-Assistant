@@ -109,7 +109,7 @@ test("auto director follow-up notification service delivers approval-required ev
     assert.equal(fetchCalls[0].body.event.eventType, "auto_director.approval_required");
     assert.equal(fetchCalls[0].body.event.reason, "chapter_batch_execution_pending");
     assert.equal(fetchCalls[0].body.card.actions[0].kind, "callback");
-    assert.equal(fetchCalls[0].body.card.actions[0].actionCode, "continue_auto_execution");
+    assert.equal(fetchCalls[0].body.card.actions[0].actionCode, "auto_resolve_and_continue");
     assert.equal(
       fetchCalls[0].body.card.actions[0].callback.endpoint,
       "https://writer.example.test/api/auto-director/channel-callbacks/dingtalk",
@@ -217,8 +217,8 @@ test("auto director follow-up notification service delivers approval-required ev
     assert.equal(fetchCalls[0].body.msgtype, "markdown");
     assert.match(fetchCalls[0].body.markdown.content, /自动导演跟进提醒/);
     assert.match(fetchCalls[0].body.markdown.content, /前 10 章已准备完成。/);
-    assert.match(fetchCalls[0].body.markdown.content, /\[继续自动执行.*\]\(https:\/\/writer\.example\.test\/api\/auto-director\/channel-callbacks\/wecom\/execute\?/);
-    assert.match(fetchCalls[0].body.markdown.content, /actionCode=continue_auto_execution/);
+    assert.match(fetchCalls[0].body.markdown.content, /\[AI 自动处理并继续\]\(https:\/\/writer\.example\.test\/api\/auto-director\/channel-callbacks\/wecom\/execute\?/);
+    assert.match(fetchCalls[0].body.markdown.content, /actionCode=auto_resolve_and_continue/);
     assert.match(fetchCalls[0].body.markdown.content, /callbackId=/);
     assert.match(fetchCalls[0].body.markdown.content, /signature=/);
     assert.match(fetchCalls[0].body.markdown.content, /\[查看详情\]\(https:\/\/writer\.example\.test\/tasks\?kind=novel_workflow&id=task_chapter_range\)/);

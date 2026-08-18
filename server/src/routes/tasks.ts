@@ -53,6 +53,7 @@ const autoDirectorFollowUpParamsSchema = z.object({
 
 const autoDirectorFollowUpActionBodySchema = z.object({
   actionCode: z.enum([
+    "auto_resolve_and_continue",
     "continue_auto_execution",
     "continue_generic",
     "retry_with_task_model",

@@ -14,10 +14,14 @@ function isChannelSafeAction(
   action: AutoDirectorAction,
 ): action is AutoDirectorAction & {
   kind: "mutation";
-  code: "continue_auto_execution" | "retry_with_task_model";
+  code: "auto_resolve_and_continue" | "continue_auto_execution" | "retry_with_task_model";
 } {
   return action.kind === "mutation"
-    && (action.code === "continue_auto_execution" || action.code === "retry_with_task_model");
+    && (
+      action.code === "auto_resolve_and_continue"
+      || action.code === "continue_auto_execution"
+      || action.code === "retry_with_task_model"
+    );
 }
 
 function hasCallbackSupport(config?: AutoDirectorChannelConfig | null): boolean {
@@ -29,7 +33,7 @@ function buildMarkdownLink(label: string, url: string): string {
 }
 
 function buildMarkdownCallbackLink(input: {
-  actionCode: Extract<AutoDirectorMutationActionCode, "continue_auto_execution" | "retry_with_task_model">;
+  actionCode: Extract<AutoDirectorMutationActionCode, "auto_resolve_and_continue" | "continue_auto_execution" | "retry_with_task_model">;
   label: string;
   taskId: string;
   eventId: string;

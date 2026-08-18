@@ -303,7 +303,12 @@ test("auto director follow-up service lists actionable items with filters, count
     assert.equal(response.items[0].currentModel, "anthropic/claude-sonnet-4-6");
     assert.equal(response.items[0].reason, "replan_required");
     assert.equal(response.items[0].followUpSummary, "第 12 章审计要求调整后续节奏。");
-    assert.deepEqual(response.items[0].availableActions.map((item) => item.code), ["continue_auto_execution", "go_replan", "open_detail"]);
+    assert.deepEqual(response.items[0].availableActions.map((item) => item.code), [
+      "auto_resolve_and_continue",
+      "continue_auto_execution",
+      "go_replan",
+      "open_detail",
+    ]);
     assert.equal(response.countersByReason.replan_required, 1);
     assert.deepEqual(response.summaryCounters, {
       recoveredToday: 0,

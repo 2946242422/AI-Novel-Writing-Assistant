@@ -10,7 +10,9 @@ import {
 import type { TaskStatus } from "@ai-novel/shared/types/task";
 import type { CharacterResourceProposalSummary } from "@ai-novel/shared/types/characterResource";
 import type { AutoDirectorAction } from "@ai-novel/shared/types/autoDirectorFollowUp";
+import { resolveModelAttentionIssue } from "@ai-novel/shared/types/modelAttention";
 import AICockpit from "@/components/autoDirector/AICockpit";
+import { CollapsibleText } from "@/components/common/CollapsibleText";
 import LLMSelector from "@/components/common/LLMSelector";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -444,21 +446,23 @@ export default function NovelTaskDrawer({
   const canShowManualImpact = capabilities?.canInspectManualEditImpact !== false && Boolean(task);
   const canShowRetryWithOverrideModel = capabilities?.canRetryWithOverrideModel === true;
   const canShowFollowUp = capabilities?.availableFollowUps !== false && Boolean(followUp);
+  const modelAttention = task ? resolveModelAttentionIssue(task) : null;
+  const automaticFollowUpAction = followUp?.availableActions.find((action) => (
+    action.code === "auto_resolve_and_continue"
+  )) ?? null;
   const promotedRecoveryAction = task?.checkpointType === "replan_required"
     ? actions.find((action) => (
       action.label.includes("让 AI 处理并继续")
       || action.label.includes("从最近进度恢复")
     )) ?? null
     : null;
-  const promotedQualityRepairAction = task?.checkpointType === "replan_required"
-    ? actions.find((action) => action.label.includes("打开质量修复")) ?? null
-    : null;
-  const inlineActions = actions.filter((action) => (
-    action !== promotedRecoveryAction && action !== promotedQualityRepairAction
-  ));
-  const inlineFollowUpActions = followUp?.availableActions.filter((action) => !(
-    task?.checkpointType === "replan_required"
-    && (action.code === "continue_auto_execution" || action.code === "go_replan")
+  const inlineActions = automaticFollowUpAction
+    ? []
+    : actions.filter((action) => (
+      action !== promotedRecoveryAction && !action.label.includes("打开质量修复")
+    ));
+  const advancedFollowUpActions = followUp?.availableActions.filter((action) => (
+    action !== automaticFollowUpAction && action.kind === "navigation"
   )) ?? [];
   const qualityDisposition = readQualityDisposition(task);
   const qualityDispositionPresentation = qualityDisposition
@@ -481,7 +485,12 @@ export default function NovelTaskDrawer({
             <AICockpit
               projection={projection}
               mode="focusedNovel"
-              fallbackSummary={dashboardView?.currentAction || displayState?.currentAction || task?.blockingReason || task?.currentItemLabel || "当前没有需要处理的 AI 推进动作。"}
+              fallbackSummary={dashboardView?.currentAction
+                || displayState?.currentAction
+                || modelAttention?.message
+                || (automaticFollowUpAction ? "AI 可以自动处理当前任务并从安全进度继续。" : task?.blockingReason)
+                || task?.currentItemLabel
+                || "当前没有需要处理的 AI 推进动作。"}
               fallbackStatusLabel={dashboardView?.statusLabel ?? (task ? formatTaskStatus(task) : "未开启")}
               showDetailsAction={false}
               onAction={(_projection, action) => handleProjectionAction(action)}
@@ -569,27 +578,15 @@ export default function NovelTaskDrawer({
                     </Badge>
                   </div>
                   <div className="text-sm leading-6 text-muted-foreground">
-                    {followUp.nextStepSuggestion ?? "请选择下方推荐动作继续。"}
+                    {modelAttention?.message ?? (automaticFollowUpAction
+                      ? "AI 会自动判断修复、重规划、恢复或重试，并在处理后继续创作。"
+                      : followUp.nextStepSuggestion ?? "按推荐动作继续。")}
                   </div>
-                  {runtimeHardBlocked && runtimeBlockedReason ? (
+                  {runtimeHardBlocked && runtimeBlockedReason && !automaticFollowUpAction && !modelAttention ? (
                     <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
                       {runtimeBlockedReason}
                     </div>
                   ) : null}
-                  <div className="flex flex-wrap gap-2">
-                    {inlineFollowUpActions.map((action) => (
-                      <Button
-                        key={action.code}
-                        type="button"
-                        size="sm"
-                        variant={followUpActionVariant(action)}
-                        onClick={() => onFollowUpAction?.(action)}
-                        disabled={executingFollowUpAction || (runtimeHardBlocked && action.kind !== "navigation")}
-                      >
-                        {action.label}
-                      </Button>
-                    ))}
-                  </div>
                 </section>
               ) : null}
 
@@ -643,8 +640,15 @@ export default function NovelTaskDrawer({
                   ) : null}
                   {task.lastError ? (
                     <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                      <div className="font-medium">最近错误</div>
-                      <div className="mt-1">{task.lastError}</div>
+                      <div className="font-medium">技术日志（高级）</div>
+                      <CollapsibleText
+                        className="mt-1"
+                        text={task.lastError}
+                        collapsedLines={3}
+                        characterThreshold={240}
+                        expandLabel="展开完整技术日志"
+                        collapseLabel="收起技术日志"
+                      />
                       {task.recoveryHint ? (
                         <div className="mt-2 text-xs text-destructive/80">恢复建议：{task.recoveryHint}</div>
                       ) : null}
@@ -674,7 +678,7 @@ export default function NovelTaskDrawer({
                 </section>
               ) : null}
 
-              {canShowRetryWithOverrideModel && overrideModel && onOverrideModelChange ? (
+              {modelAttention && canShowRetryWithOverrideModel && overrideModel && onOverrideModelChange ? (
                 <section className="space-y-3 rounded-2xl border border-border/70 bg-muted/15 p-4">
                   <div className="text-sm font-medium text-foreground">使用其他模型重试</div>
                   <LLMSelector
@@ -711,7 +715,7 @@ export default function NovelTaskDrawer({
 
               <section className="space-y-3">
                 <div className="text-sm font-medium text-foreground">快捷动作</div>
-                {inlineActions.length > 0 ? (
+                {inlineActions.length > 0 || advancedFollowUpActions.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
                     {inlineActions.map((action) => (
                       <Button
@@ -721,6 +725,18 @@ export default function NovelTaskDrawer({
                         variant={action.variant ?? "default"}
                         disabled={action.disabled}
                         onClick={action.onClick}
+                      >
+                        {action.label}
+                      </Button>
+                    ))}
+                    {advancedFollowUpActions.map((action) => (
+                      <Button
+                        key={action.code}
+                        type="button"
+                        size="sm"
+                        variant={followUpActionVariant(action)}
+                        onClick={() => onFollowUpAction?.(action)}
+                        disabled={executingFollowUpAction || (runtimeHardBlocked && action.kind !== "navigation")}
                       >
                         {action.label}
                       </Button>
@@ -837,7 +853,16 @@ export default function NovelTaskDrawer({
         </div>
 
         <div className="space-y-2 border-t border-border/70 px-5 py-4">
-          {promotedRecoveryAction ? (
+          {!modelAttention && automaticFollowUpAction ? (
+            <Button
+              type="button"
+              className="w-full"
+              disabled={executingFollowUpAction}
+              onClick={() => onFollowUpAction?.(automaticFollowUpAction)}
+            >
+              {executingFollowUpAction ? "AI 正在处理…" : automaticFollowUpAction.label}
+            </Button>
+          ) : !modelAttention && promotedRecoveryAction ? (
             <Button
               type="button"
               className="w-full"
@@ -846,20 +871,9 @@ export default function NovelTaskDrawer({
             >
               {promotedRecoveryAction.label}
             </Button>
-          ) : primaryAction ? (
+          ) : !modelAttention && primaryAction ? (
             <Button type="button" className="w-full" onClick={() => handleProjectionAction(primaryAction)}>
               {primaryActionLabel || "继续处理"}
-            </Button>
-          ) : null}
-          {promotedQualityRepairAction ? (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-full"
-              disabled={promotedQualityRepairAction.disabled}
-              onClick={promotedQualityRepairAction.onClick}
-            >
-              {promotedQualityRepairAction.label}
             </Button>
           ) : null}
           {task?.sourceRoute ? (

@@ -5,7 +5,7 @@ export interface WeComMarkdownCallbackInput {
   callbackId: string;
   eventId: string;
   taskId: string;
-  actionCode: Extract<AutoDirectorMutationActionCode, "continue_auto_execution" | "retry_with_task_model">;
+  actionCode: Extract<AutoDirectorMutationActionCode, "auto_resolve_and_continue" | "continue_auto_execution" | "retry_with_task_model">;
   userId?: string | null;
 }
 

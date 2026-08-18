@@ -23,7 +23,6 @@ import {
   getAutoDirectorFollowUpDetail,
   getAutoDirectorFollowUpOverview,
   listAutoDirectorFollowUps,
-  revalidateAutoDirectorFollowUpDetail,
 } from "@/api/autoDirectorFollowUps";
 import { queryKeys } from "@/api/queryKeys";
 import { AutoDirectorFollowUpBatchBar } from "./components/AutoDirectorFollowUpBatchBar";
@@ -66,14 +65,9 @@ function buildListParamsKey(input: {
 function isBatchActionAllowedForSection(
   section: AutoDirectorFollowUpSection,
   actionCode: AutoDirectorMutationActionCode,
-): actionCode is Extract<AutoDirectorMutationActionCode, "continue_auto_execution" | "retry_with_task_model"> {
-  if (section === "pending") {
-    return actionCode === "continue_auto_execution";
-  }
-  if (section === "exception") {
-    return actionCode === "retry_with_task_model";
-  }
-  return false;
+): actionCode is Extract<AutoDirectorMutationActionCode, "auto_resolve_and_continue"> {
+  return (section === "pending" || section === "exception" || section === "needs_validation")
+    && actionCode === "auto_resolve_and_continue";
 }
 
 function buildIdempotencyKey(directorTaskId: string, actionCode: AutoDirectorMutationActionCode): string {
@@ -86,8 +80,8 @@ function buildBatchRequestKey(actionCode: AutoDirectorMutationActionCode): strin
 
 function isBatchActionCode(
   actionCode: AutoDirectorMutationActionCode,
-): actionCode is Extract<AutoDirectorMutationActionCode, "continue_auto_execution" | "retry_with_task_model"> {
-  return actionCode === "continue_auto_execution" || actionCode === "retry_with_task_model";
+): actionCode is Extract<AutoDirectorMutationActionCode, "auto_resolve_and_continue"> {
+  return actionCode === "auto_resolve_and_continue";
 }
 
 function getSelectedSection(items: AutoDirectorFollowUpItem[]): AutoDirectorFollowUpSection | null {
@@ -253,13 +247,22 @@ export default function AutoDirectorFollowUpCenterPage() {
     }),
     onSuccess: async (response) => {
       await invalidateFollowUps();
+      const result = response.data;
+      if (result?.code === "model_attention_required") {
+        toast.error(formatActionFeedbackMessage(result.message, "当前模型需要先处理。"));
+        return;
+      }
+      if (result?.code === "failed" || result?.code === "forbidden" || result?.code === "state_changed") {
+        toast.error(formatActionFeedbackMessage(result.message, "AI 自动处理暂未完成。"));
+        return;
+      }
       toast.success(formatActionFeedbackMessage(response.message ?? "", "操作已提交"));
     },
   });
 
   const batchMutation = useMutation({
     mutationFn: (input: {
-      actionCode: Extract<AutoDirectorMutationActionCode, "continue_auto_execution" | "retry_with_task_model">;
+      actionCode: Extract<AutoDirectorMutationActionCode, "auto_resolve_and_continue">;
       directorTaskIds: string[];
     }) => executeAutoDirectorFollowUpBatchAction({
       actionCode: input.actionCode,
@@ -270,17 +273,6 @@ export default function AutoDirectorFollowUpCenterPage() {
       await invalidateFollowUps();
       toast.success(formatActionFeedbackMessage(response.message ?? "", "批量操作已提交"));
       setSelectedDirectorTaskIds([]);
-    },
-  });
-
-  const revalidationMutation = useMutation({
-    mutationFn: revalidateAutoDirectorFollowUpDetail,
-    onSuccess: async (response, directorTaskId) => {
-      queryClient.setQueryData(
-        queryKeys.autoDirectorFollowUps.detail(directorTaskId),
-        response,
-      );
-      toast.success("校验结果已刷新。");
     },
   });
 
@@ -373,23 +365,6 @@ export default function AutoDirectorFollowUpCenterPage() {
     });
   };
 
-  const handleRefreshValidation = async () => {
-    if (!selectedDirectorTaskId) {
-      return;
-    }
-    await revalidationMutation.mutateAsync(selectedDirectorTaskId);
-  };
-
-  const handleSafeFix = async () => {
-    if (!selectedDirectorTaskId) {
-      return;
-    }
-    await actionMutation.mutateAsync({
-      directorTaskId: selectedDirectorTaskId,
-      actionCode: "safe_fix_validation",
-    });
-  };
-
   const overview = overviewQuery.data?.data ?? null;
   const {
     criticalCount,
@@ -414,7 +389,7 @@ export default function AutoDirectorFollowUpCenterPage() {
         icon={ShieldAlert}
         context="自动导演"
         title="导演跟进中心"
-        description="只汇总 AI 自动导演任务，不混入手动工作区任务；阻塞、质量提醒、待操作和自动推进使用不同等级。"
+        description="汇总 AI 自动导演任务。质量问题和普通失败只需点击一次，AI 会自动处理并继续。"
         meta={(
           <>
             <span>阻塞 {criticalCount} 项</span>
@@ -455,11 +430,9 @@ export default function AutoDirectorFollowUpCenterPage() {
         <WorkspaceNextAction
           icon={criticalCount > 0 ? ShieldAlert : Activity}
           tone={criticalCount > 0 ? "danger" : pendingActionCount > 0 ? "info" : progressCount > 0 ? "info" : "success"}
-          title={replanCount > 0 ? "先处理明确的重规划" : criticalCount > 0 ? "先处理阻塞任务" : pendingActionCount > 0 ? "确认待操作节点" : progressCount > 0 ? "自动导演正在推进" : "当前没有需要跟进的导演任务"}
+          title={criticalCount > 0 || replanCount > 0 ? "让 AI 自动处理待恢复任务" : pendingActionCount > 0 ? "确认待操作节点" : progressCount > 0 ? "自动导演正在推进" : "当前没有需要跟进的导演任务"}
           description={criticalCount > 0
-            ? replanCount > 0
-              ? "后续章节已明确要求停止并重规划；先确认影响范围，再进入重规划入口。"
-              : "先查看校验或异常原因，再选择安全修复、恢复或重试。"
+            ? "选中任务后点击“AI 自动处理并继续”，系统会自行判断轻修、重规划、重试或检查点恢复。"
             : pendingActionCount > 0
               ? "待操作节点需要确认或继续；质量提醒不会阻止全书继续执行。"
               : progressCount > 0
@@ -511,12 +484,10 @@ export default function AutoDirectorFollowUpCenterPage() {
         <AutoDirectorFollowUpDetailPanel
           detail={detailQuery.data?.data ?? null}
           selectedItem={items.find((item) => item.directorTaskId === selectedDirectorTaskId) ?? null}
-          loading={detailQuery.isLoading || revalidationMutation.isPending}
+          loading={detailQuery.isLoading}
           errorMessage={detailErrorMessage}
-          actionLoading={actionMutation.isPending || revalidationMutation.isPending}
+          actionLoading={actionMutation.isPending}
           onExecuteAction={handleExecuteAction}
-          onRefreshValidation={handleRefreshValidation}
-          onSafeFix={handleSafeFix}
           onRetry={() => void detailQuery.refetch()}
         />
       </div>

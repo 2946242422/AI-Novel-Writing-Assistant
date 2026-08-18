@@ -225,7 +225,7 @@ test("auto director follow-up routes expose overview, list, detail, and action e
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        actionCode: "continue_auto_execution",
+        actionCode: "auto_resolve_and_continue",
         idempotencyKey: "route-k1",
       }),
     });
@@ -282,7 +282,7 @@ test("auto director follow-up routes expose overview, list, detail, and action e
       ["execute", {
         directorTaskId: "task_1",
         taskId: "task_1",
-        actionCode: "continue_auto_execution",
+        actionCode: "auto_resolve_and_continue",
         source: "web",
         operatorId: "anonymous",
         idempotencyKey: "route-k1",

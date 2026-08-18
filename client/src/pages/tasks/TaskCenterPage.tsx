@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { AutoDirectorMutationActionCode } from "@ai-novel/shared/types/autoDirectorFollowUp";
 import type { DirectorContinuationMode } from "@ai-novel/shared/types/novelDirector";
 import type { TaskKind, TaskStatus, UnifiedTaskStep } from "@ai-novel/shared/types/task";
+import { resolveModelAttentionIssue } from "@ai-novel/shared/types/modelAttention";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import type { NovelWorkflowMilestone } from "@ai-novel/shared/types/novelWorkflow";
 import { getDirectorTaskSnapshot } from "@/api/novelDirector";
@@ -48,7 +49,6 @@ import {
   isTaskMustHandle,
   isTaskReplanRequired,
   resolvePreferredAutoDirectorRecoveryAction,
-  resolveTaskCenterQualityRepairRoute,
   getTimestamp,
   serializeListParams,
   type TaskSortMode,
@@ -398,8 +398,8 @@ export default function TaskCenterPage() {
   const preferredAutoDirectorRecoveryAction = resolvePreferredAutoDirectorRecoveryAction(
     selectedAutoDirectorFollowUp,
   );
-  const selectedQualityRepairRoute = selectedTask && isAutoDirectorTask
-    ? resolveTaskCenterQualityRepairRoute(selectedTask, selectedAutoDirectorFollowUp)
+  const selectedModelAttention = selectedTask
+    ? resolveModelAttentionIssue(selectedTask)
     : null;
 
   const autoDirectorRecoveryMutation = useMutation({
@@ -422,6 +422,10 @@ export default function TaskCenterPage() {
         invalidateTaskQueries(),
         queryClient.invalidateQueries({ queryKey: ["auto-director-follow-ups"] }),
       ]);
+      if (result.code === "model_attention_required") {
+        toast.error(result.message || "当前模型需要先恢复连接或额度。");
+        return;
+      }
       if (result.code === "failed" || result.code === "forbidden" || result.code === "state_changed") {
         toast.error(result.message || "当前状态已变化，请刷新后重试。");
         return;
@@ -551,19 +555,14 @@ export default function TaskCenterPage() {
     : null;
   const priorityFailureActions = selectedTask && isAutoDirectorTask
     ? [
-        ...(preferredAutoDirectorRecoveryAction ? [{
-          label: autoDirectorRecoveryMutation.isPending ? "AI 正在处理..." : "让 AI 处理并继续",
+        ...(!selectedModelAttention && preferredAutoDirectorRecoveryAction ? [{
+          label: autoDirectorRecoveryMutation.isPending ? "AI 正在处理…" : "AI 自动处理并继续",
           disabled: autoDirectorRecoveryMutation.isPending,
           onClick: () => autoDirectorRecoveryMutation.mutate({
             taskId: selectedTask.id,
             actionCode: (preferredAutoDirectorRecoveryAction.executorActionCode
               ?? preferredAutoDirectorRecoveryAction.code) as AutoDirectorMutationActionCode,
           }),
-        }] : []),
-        ...(selectedQualityRepairRoute ? [{
-          label: "打开质量修复",
-          disabled: false,
-          onClick: () => navigate(selectedQualityRepairRoute),
         }] : []),
       ]
     : [];
@@ -600,7 +599,7 @@ export default function TaskCenterPage() {
         icon={ListChecks}
         context="执行历史与恢复"
         title="运行记录"
-        description="查看创作、拆书、知识索引和图片任务，优先处理需要你介入的记录。实时生成过程可从顶部“AI 实况”查看。"
+        description="查看创作、拆书、知识索引和图片任务。小说生产异常只需交给 AI 自动处理，实时过程可从顶部“AI 实况”查看。"
         actions={(
           <Button
             type="button"
@@ -618,7 +617,7 @@ export default function TaskCenterPage() {
         className="rounded-2xl border-transparent px-5 py-3 shadow-none"
         icon={overviewErrorMessage ? RefreshCw : hasMustHandleTask ? ShieldAlert : Activity}
         tone={overviewQuery.isLoading ? "info" : overviewErrorMessage ? "danger" : hasMustHandleTask ? "danger" : waitingActionCount > 0 ? "info" : qualityReminderCount > 0 ? "warning" : runningCount + queuedCount > 0 ? "info" : allRows.length > 0 ? "success" : "neutral"}
-        title={overviewQuery.isLoading ? "正在读取全局任务状态" : overviewErrorMessage ? "重新读取任务概览" : hasMustHandleTask ? "先查看必须处理的任务" : waitingActionCount > 0 ? "完成等待中的操作" : qualityReminderCount > 0 ? "查看质量提醒" : runningCount + queuedCount > 0 ? "关注正在推进的任务" : allRows.length > 0 ? "当前没有阻塞任务" : "任务会在执行后汇总到这里"}
+        title={overviewQuery.isLoading ? "正在读取全局任务状态" : overviewErrorMessage ? "重新读取任务概览" : hasMustHandleTask ? "让 AI 处理待恢复任务" : waitingActionCount > 0 ? "完成等待中的操作" : qualityReminderCount > 0 ? "查看质量提醒" : runningCount + queuedCount > 0 ? "关注正在推进的任务" : allRows.length > 0 ? "当前没有阻塞任务" : "任务会在执行后汇总到这里"}
         description={overviewQuery.isLoading
           ? "正在汇总执行、等待操作、失败和可恢复任务，请稍候。"
           : overviewErrorMessage
@@ -626,7 +625,7 @@ export default function TaskCenterPage() {
             : hasMustHandleTask
               ? recoveryCandidatesQuery.isLoading && !recommendedBlockingTask && failedTaskCount === 0
                 ? "正在定位可恢复任务；读取完成后会提供对应入口。"
-                : "阻塞状态可能影响对应来源流程；先查看原因和恢复位置，再决定恢复、重试或重规划。"
+                : "选中任务后只需点击“AI 自动处理并继续”。AI 会自行选择修复、重规划或从最近检查点恢复。"
               : waitingActionCount > 0
                 ? "候选确认、章节批次继续等节点需要你的操作，但不代表任务发生故障。"
                 : qualityReminderCount > 0
@@ -729,9 +728,10 @@ export default function TaskCenterPage() {
           noticeAction={noticeAction}
           noticeSeverity={selectedTask ? getTaskNoticeSeverity(selectedTask) : "normal"}
           noticeTitle={selectedTask ? getTaskNoticeTitle(selectedTask) : "任务提醒"}
-          failureAction={failureAction}
+          failureAction={isAutoDirectorTask ? null : failureAction}
           priorityFailureActions={priorityFailureActions}
           failureIsQualityReminder={selectedTaskHasQualityFailure}
+          modelAttention={selectedModelAttention}
           actions={detailActions}
           steps={selectedTaskSteps}
           milestones={selectedTask?.kind === "novel_workflow" && Array.isArray(selectedTaskMeta.milestones)

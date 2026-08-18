@@ -289,6 +289,7 @@ export function followUpActionVariant(action: AutoDirectorAction): "default" | "
 }
 
 const AUTO_DIRECTOR_RECOVERY_ACTION_PRIORITY = [
+  "auto_resolve_and_continue",
   "continue_generic",
   "continue_auto_execution",
   "retry_with_task_model",

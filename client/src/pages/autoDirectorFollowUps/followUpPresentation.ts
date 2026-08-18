@@ -131,6 +131,9 @@ export function getFollowUpActionConsequence(action: AutoDirectorAction): string
   if (action.kind === "navigation") {
     return "只打开对应处理页面，不会改变当前导演任务状态。";
   }
+  if (action.code === "auto_resolve_and_continue") {
+    return "AI 会根据任务状态自动选择修复、重规划、恢复或重试，并从最近安全进度继续。";
+  }
   if (action.code === "continue_auto_execution") {
     return "向当前导演任务提交继续命令，并从现有检查点推进自动执行范围。";
   }

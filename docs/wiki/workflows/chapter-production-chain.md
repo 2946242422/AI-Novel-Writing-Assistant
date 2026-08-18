@@ -41,6 +41,7 @@
 - 接收闸门通过后、构建运行包前，会对最终正文执行一次确定性正文自然度/退化检测。该检测只做本地文本规则检查，覆盖 AI 自述、占位符、工程词泄漏、截断、复读、破折号/省略号、否定翻转句、碎句和长段落等风险；它不调用 LLM，也不改变正文。
 - 正文自然度/退化检测输出统一进入 `mode_fit` 审计报告，issue code 使用 `prose_*` 前缀。`high/critical` 视为本章阻塞审计问题并复用现有 patch repair / heavy repair 链路；`medium/low` 只作为提示和后续局部优化依据，不触发全章重写。
 - `prose_*` 问题默认属于本章局部质量问题。自动修复耗尽后，如果正文仍可读，应登记 `defer_and_continue` 质量债并继续剩余章节；不得仅因为单章正文自然度问题写入 `replanAlertDetails`、`PIPELINE_REPLAN_REQUIRED` 或全局自动导演重规划。
+- `quality.loop_exhausted` 不再作为“可用正文必须人工处理”的理由。已有可用正文时固定映射为 `continue_with_warning`，写入质量债后继续；只有无可用正文、数据/事实安全风险或同类自动重规划连续循环时才允许暂停。
 - 接收闸门热路径只等待 `acceptance`。Timeline 不属于 writer required context，也不构成下一章生成前置条件；未启用 Timeline 时不得生成“缺少 timeline context”的正文质量告警。
 - `acceptance` 门禁必须按同章、同正文 content hash、同模型请求写入持久化幂等缓存。任务取消、失败或 worker 重启后，如果正文未变化，应优先复用成功结果，不能重新触发相同接收评估。
 - 门禁缓存只能保存可复用的成功结果。`acceptance_gate_unavailable` 等临时系统失败不得写成长期成功缓存；这类结果应保留为当前运行风险，允许后续重试。

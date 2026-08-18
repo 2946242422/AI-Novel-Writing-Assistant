@@ -1,4 +1,5 @@
 import type { UnifiedTaskSummary } from "@ai-novel/shared/types/task";
+import { resolveModelAttentionIssue } from "@ai-novel/shared/types/modelAttention";
 import { Button } from "@/components/ui/button";
 import {
   TaskQueueEmptyState,
@@ -60,6 +61,12 @@ export default function TaskCenterListPanel({
           const tone = getTaskQueueTone(task);
           const severity = getTaskQueueSeverity(task);
           const progressPercent = Math.round(task.progress * 100);
+          const modelAttention = resolveModelAttentionIssue(task);
+          const blockingMessage = task.blockingReason
+            ? task.kind === "novel_workflow"
+              ? modelAttention?.message ?? "AI 可以自动判断修复、重规划或恢复方式。选中任务后点击“AI 自动处理并继续”即可。"
+              : task.blockingReason
+            : null;
           return (
             <TaskQueueItem
               key={`${task.kind}:${task.id}`}
@@ -91,9 +98,9 @@ export default function TaskCenterListPanel({
               <div className="mt-3 text-sm leading-5 text-foreground/85">
                 {task.currentItemLabel ?? task.displayStatus ?? task.currentStage ?? "等待任务更新"}
               </div>
-              {task.blockingReason ? (
+              {blockingMessage ? (
                 <div className="mt-2 line-clamp-2 rounded-lg bg-destructive/[0.055] px-3 py-2 text-xs leading-5 text-destructive">
-                  {task.blockingReason}
+                  {blockingMessage}
                 </div>
               ) : null}
               <div className="mt-3 text-[11px] text-muted-foreground">

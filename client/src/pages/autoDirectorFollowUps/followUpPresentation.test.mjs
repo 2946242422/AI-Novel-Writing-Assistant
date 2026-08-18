@@ -54,6 +54,13 @@ test("follow-up presentation marks progress and auto approval without blocking",
 
 test("follow-up action consequences are driven by structured action codes", () => {
   assert.match(getFollowUpActionConsequence({
+    code: "auto_resolve_and_continue",
+    kind: "mutation",
+    label: "AI 自动处理并继续",
+    riskLevel: "low",
+    requiresConfirm: false,
+  }), /自动选择/);
+  assert.match(getFollowUpActionConsequence({
     code: "retry_with_task_model",
     kind: "mutation",
     label: "重试",

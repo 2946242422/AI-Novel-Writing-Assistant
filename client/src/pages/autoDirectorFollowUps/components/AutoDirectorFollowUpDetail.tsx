@@ -3,6 +3,7 @@ import type {
   AutoDirectorFollowUpDetail,
   AutoDirectorFollowUpItem,
 } from "@ai-novel/shared/types/autoDirectorFollowUp";
+import { resolveModelAttentionIssue } from "@ai-novel/shared/types/modelAttention";
 import { Button } from "@/components/ui/button";
 import { CollapsibleText } from "@/components/common/CollapsibleText";
 import {
@@ -12,7 +13,7 @@ import {
   TaskQueueStatusBadge,
 } from "@/components/taskQueue";
 import { WorkspaceStateNotice } from "@/components/workspace";
-import { AlertTriangle, ChevronDown, RefreshCw } from "lucide-react";
+import { AlertTriangle, ChevronDown } from "lucide-react";
 import { AUTO_DIRECTOR_MOBILE_CLASSES } from "@/mobile/autoDirector";
 import {
   getFollowUpActionConsequence,
@@ -31,8 +32,6 @@ interface AutoDirectorFollowUpDetailPanelProps {
   errorMessage?: string | null;
   actionLoading: boolean;
   onExecuteAction: (item: AutoDirectorFollowUpItem, action: AutoDirectorAction) => void | Promise<void>;
-  onRefreshValidation: () => void | Promise<void>;
-  onSafeFix: () => void | Promise<void>;
   onRetry: () => void | Promise<void>;
 }
 
@@ -61,8 +60,6 @@ export function AutoDirectorFollowUpDetailPanel({
   errorMessage,
   actionLoading,
   onExecuteAction,
-  onRefreshValidation,
-  onSafeFix,
   onRetry,
 }: AutoDirectorFollowUpDetailPanelProps) {
   const deliveryStatusLabels = {
@@ -79,6 +76,16 @@ export function AutoDirectorFollowUpDetailPanel({
     "auto_director.progress_changed": "进度变化",
   } as const;
   const tone = selectedItem ? getFollowUpTone(selectedItem) : "neutral";
+  const modelAttention = detail ? resolveModelAttentionIssue(detail.task) : null;
+  const automaticAction = detail?.availableActions.find((action) => action.code === "auto_resolve_and_continue") ?? null;
+  const primaryActions = modelAttention
+    ? []
+    : automaticAction
+      ? [automaticAction]
+      : detail?.availableActions.slice(0, 1) ?? [];
+  const advancedActions = detail?.availableActions.filter((action) => (
+    !primaryActions.includes(action) && action.kind === "navigation"
+  )) ?? [];
 
   return (
     <TaskQueueSection
@@ -117,13 +124,15 @@ export function AutoDirectorFollowUpDetailPanel({
 
             <TaskQueueImpactNotice
               severity={getFollowUpSeverity(selectedItem)}
-              title={getFollowUpLevelLabel(selectedItem)}
-              description={detail.blockingReason ?? detail.followUpSummary}
+              title={modelAttention?.title ?? (automaticAction ? "AI 可自动处理" : getFollowUpLevelLabel(selectedItem))}
+              description={modelAttention?.message ?? (automaticAction
+                ? "AI 会自动判断修复、重规划、恢复或重试，并在处理后继续创作。"
+                : detail.blockingReason ?? detail.followUpSummary)}
             />
 
-            <div className="space-y-2">
+            {primaryActions.length > 0 ? <div className="space-y-2">
               <div className="text-sm font-medium">推荐动作</div>
-              {detail.availableActions.map((action) => (
+              {primaryActions.map((action) => (
                 <TaskQueueActionRow
                   key={action.code}
                   title={action.label}
@@ -142,7 +151,7 @@ export function AutoDirectorFollowUpDetailPanel({
                   )}
                 />
               ))}
-            </div>
+            </div> : null}
 
             <details className="group rounded-md border border-border/80 bg-muted/10">
               <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
@@ -155,6 +164,36 @@ export function AutoDirectorFollowUpDetailPanel({
                 <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
               </summary>
               <div className="space-y-4 border-t border-border/70 px-3 py-3">
+
+            {advancedActions.length > 0 ? (
+              <div className="space-y-2">
+                <div className="text-sm font-medium">相关页面</div>
+                {advancedActions.map((action) => (
+                  <TaskQueueActionRow
+                    key={action.code}
+                    title={action.label}
+                    consequence={getFollowUpActionConsequence(action)}
+                    tone={getFollowUpActionTone(action)}
+                    action={(
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={actionLoading}
+                        onClick={() => void onExecuteAction(selectedItem, action)}
+                      >
+                        {action.label}
+                      </Button>
+                    )}
+                  />
+                ))}
+              </div>
+            ) : null}
+
+            {detail.task.lastError ? (
+              <div className="rounded-md border border-destructive/20 bg-destructive/[0.04] p-3">
+                <FollowUpDetailText label="技术日志（高级）" text={detail.task.lastError} collapsedLines={3} />
+              </div>
+            ) : null}
 
             {detail.riskNote ? (
               <WorkspaceStateNotice
@@ -210,28 +249,8 @@ export function AutoDirectorFollowUpDetailPanel({
                     ))}
                   </div>
                 ) : null}
-                <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className={AUTO_DIRECTOR_MOBILE_CLASSES.fullWidthAction}
-                    disabled={actionLoading}
-                    onClick={() => void onRefreshValidation()}
-                  >
-                    <RefreshCw className="h-4 w-4" aria-hidden="true" />
-                    一键重新校验
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={actionLoading}
-                    className={`${AUTO_DIRECTOR_MOBILE_CLASSES.fullWidthAction} border-warning/40 bg-warning/10 text-warning hover:bg-warning/15 hover:text-warning`}
-                    title="仅修复校验标记为低风险的状态、检查点、进度、恢复目标、自动执行对账、替代原因、审计和通知记录；不会清除正文、重写资产、重规划、确认候选、切换模型或生成内容。"
-                    onClick={() => void onSafeFix()}
-                  >
-                    <AlertTriangle className="h-4 w-4" aria-hidden="true" />
-                    一键安全修复
-                  </Button>
+                <div className="text-xs leading-5 text-muted-foreground">
+                  低风险校验问题会由“AI 自动处理并继续”完成对账和恢复；涉及正文丢失或受保护内容时才会暂停。
                 </div>
               </div>
             ) : null}

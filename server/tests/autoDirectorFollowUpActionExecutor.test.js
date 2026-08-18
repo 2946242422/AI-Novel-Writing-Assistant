@@ -217,6 +217,188 @@ test("auto director follow-up action executor returns failed replan checkpoints 
   prisma.autoDirectorFollowUpActionLog.create = originals.actionLogCreate;
 });
 
+test("unified automatic recovery chooses quality replan continuation without user routing", async () => {
+  const executor = new AutoDirectorFollowUpActionExecutor();
+  const calls = [];
+  const originals = {
+    actionLogFindUnique: prisma.autoDirectorFollowUpActionLog.findUnique,
+    actionLogCreate: prisma.autoDirectorFollowUpActionLog.create,
+  };
+
+  prisma.autoDirectorFollowUpActionLog.findUnique = async () => null;
+  prisma.autoDirectorFollowUpActionLog.create = async ({ data }) => data;
+  executor.workflowService.healAutoDirectorTaskState = async () => false;
+  executor.workflowService.getTaskByIdWithoutHealing = async () => buildWorkflowRow({
+    id: "task_auto_quality_replan",
+    status: "failed",
+    currentStage: "质量修复",
+    currentItemKey: "quality_repair",
+    checkpointType: "replan_required",
+    lastError: "第 2 章目标与当前计划窗口失配。",
+  });
+  executor.novelDirectorService.continueTask = async (taskId, input) => {
+    calls.push({ taskId, input });
+  };
+  executor.workflowTaskAdapter.retry = async () => {
+    throw new Error("质量重规划不应选择失败重试路径");
+  };
+  executor.workflowTaskAdapter.detail = async (taskId) => buildTaskDetail(taskId, {
+    checkpointType: "replan_required",
+    currentStage: "质量修复",
+    currentItemKey: "quality_repair",
+  });
+
+  try {
+    const result = await executor.execute({
+      taskId: "task_auto_quality_replan",
+      actionCode: "auto_resolve_and_continue",
+      source: "web",
+      operatorId: "user_auto",
+      idempotencyKey: "auto-quality-replan-k1",
+    });
+
+    assert.equal(result.code, "executed");
+    assert.deepEqual(calls, [{
+      taskId: "task_auto_quality_replan",
+      input: {
+        continuationMode: "resume",
+      },
+    }]);
+  } finally {
+    prisma.autoDirectorFollowUpActionLog.findUnique = originals.actionLogFindUnique;
+    prisma.autoDirectorFollowUpActionLog.create = originals.actionLogCreate;
+  }
+});
+
+test("unified automatic recovery retries ordinary failures from the saved task model", async () => {
+  const executor = new AutoDirectorFollowUpActionExecutor();
+  const retryCalls = [];
+  const originals = {
+    actionLogFindUnique: prisma.autoDirectorFollowUpActionLog.findUnique,
+    actionLogCreate: prisma.autoDirectorFollowUpActionLog.create,
+  };
+
+  prisma.autoDirectorFollowUpActionLog.findUnique = async () => null;
+  prisma.autoDirectorFollowUpActionLog.create = async ({ data }) => data;
+  executor.workflowService.healAutoDirectorTaskState = async () => false;
+  executor.workflowService.getTaskByIdWithoutHealing = async () => buildWorkflowRow({
+    id: "task_auto_retry",
+    status: "failed",
+    checkpointType: "chapter_batch_ready",
+    lastError: "403 <!DOCTYPE html><title>系统终端 - 异常状态诊断</title>",
+  });
+  executor.workflowTaskAdapter.retry = async (input) => {
+    retryCalls.push(input);
+    return buildTaskDetail(input.id);
+  };
+  executor.workflowTaskAdapter.detail = async (taskId) => buildTaskDetail(taskId);
+
+  try {
+    const result = await executor.execute({
+      taskId: "task_auto_retry",
+      actionCode: "auto_resolve_and_continue",
+      source: "web",
+      operatorId: "user_auto",
+      idempotencyKey: "auto-retry-k1",
+    });
+
+    assert.equal(result.code, "executed");
+    assert.deepEqual(retryCalls, [{
+      id: "task_auto_retry",
+      resume: true,
+    }]);
+  } finally {
+    prisma.autoDirectorFollowUpActionLog.findUnique = originals.actionLogFindUnique;
+    prisma.autoDirectorFollowUpActionLog.create = originals.actionLogCreate;
+  }
+});
+
+test("unified automatic recovery stops only for a model configuration problem", async () => {
+  const executor = new AutoDirectorFollowUpActionExecutor();
+  const actionLogs = [];
+  const originals = {
+    actionLogFindUnique: prisma.autoDirectorFollowUpActionLog.findUnique,
+    actionLogCreate: prisma.autoDirectorFollowUpActionLog.create,
+  };
+
+  prisma.autoDirectorFollowUpActionLog.findUnique = async () => null;
+  prisma.autoDirectorFollowUpActionLog.create = async ({ data }) => {
+    actionLogs.push(data);
+    return data;
+  };
+  executor.workflowService.healAutoDirectorTaskState = async () => false;
+  executor.workflowService.getTaskByIdWithoutHealing = async () => buildWorkflowRow({
+    id: "task_model_attention",
+    status: "failed",
+    lastError: "429 rate_limit: too many requests",
+  });
+  executor.workflowTaskAdapter.retry = async () => {
+    throw new Error("限流时不应继续自动重试");
+  };
+  executor.novelDirectorService.continueTask = async () => {
+    throw new Error("限流时不应继续自动执行");
+  };
+  executor.workflowTaskAdapter.detail = async (taskId) => buildTaskDetail(taskId, {
+    lastError: "429 rate_limit: too many requests",
+  });
+
+  try {
+    const result = await executor.execute({
+      taskId: "task_model_attention",
+      actionCode: "auto_resolve_and_continue",
+      source: "web",
+      operatorId: "user_auto",
+      idempotencyKey: "model-attention-k1",
+    });
+
+    assert.equal(result.code, "model_attention_required");
+    assert.match(result.message, /限流/);
+    assert.doesNotMatch(result.message, /429|rate_limit/);
+    assert.equal(actionLogs[0].resultCode, "model_attention_required");
+  } finally {
+    prisma.autoDirectorFollowUpActionLog.findUnique = originals.actionLogFindUnique;
+    prisma.autoDirectorFollowUpActionLog.create = originals.actionLogCreate;
+  }
+});
+
+test("unified automatic recovery sanitizes a model problem raised during retry", async () => {
+  const executor = new AutoDirectorFollowUpActionExecutor();
+  const originals = {
+    actionLogFindUnique: prisma.autoDirectorFollowUpActionLog.findUnique,
+    actionLogCreate: prisma.autoDirectorFollowUpActionLog.create,
+  };
+
+  prisma.autoDirectorFollowUpActionLog.findUnique = async () => null;
+  prisma.autoDirectorFollowUpActionLog.create = async ({ data }) => data;
+  executor.workflowService.healAutoDirectorTaskState = async () => false;
+  executor.workflowService.getTaskByIdWithoutHealing = async () => buildWorkflowRow({
+    id: "task_model_attention_during_retry",
+    status: "failed",
+    lastError: "temporary transport failure",
+  });
+  executor.workflowTaskAdapter.retry = async () => {
+    throw new Error("401 invalid api key: secret-value-must-not-be-shown");
+  };
+  executor.workflowTaskAdapter.detail = async (taskId) => buildTaskDetail(taskId);
+
+  try {
+    const result = await executor.execute({
+      taskId: "task_model_attention_during_retry",
+      actionCode: "auto_resolve_and_continue",
+      source: "web",
+      operatorId: "user_auto",
+      idempotencyKey: "model-attention-during-retry-k1",
+    });
+
+    assert.equal(result.code, "model_attention_required");
+    assert.match(result.message, /密钥|权限/);
+    assert.doesNotMatch(result.message, /secret-value|invalid api key|401/);
+  } finally {
+    prisma.autoDirectorFollowUpActionLog.findUnique = originals.actionLogFindUnique;
+    prisma.autoDirectorFollowUpActionLog.create = originals.actionLogCreate;
+  }
+});
+
 test("auto director follow-up action executor retries with the route model and resumes execution", async () => {
   const executor = new AutoDirectorFollowUpActionExecutor();
   const calls = [];
@@ -555,7 +737,7 @@ test("auto director follow-up action executor blocks mutation when unified valid
   prisma.autoDirectorFollowUpActionLog.create = originals.actionLogCreate;
 });
 
-test("auto director follow-up action executor passes batch high-memory count into later resumes", async () => {
+test("unified automatic recovery passes batch high-memory count into later resumes", async () => {
   const executor = new AutoDirectorFollowUpActionExecutor();
   const continueCalls = [];
   const originals = {
@@ -584,7 +766,7 @@ test("auto director follow-up action executor passes batch high-memory count int
   executor.workflowTaskAdapter.detail = async (taskId) => buildTaskDetail(taskId);
 
   const result = await executor.executeBatch({
-    actionCode: "continue_auto_execution",
+    actionCode: "auto_resolve_and_continue",
     taskIds: ["task_one", "task_two"],
     source: "web",
     operatorId: "user_7",
