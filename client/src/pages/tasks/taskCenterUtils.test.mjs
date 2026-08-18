@@ -8,6 +8,8 @@ import {
   getTaskQueueLevelLabel,
   getTaskQueueTone,
   isTaskMustHandle,
+  resolvePreferredAutoDirectorRecoveryAction,
+  resolveTaskCenterQualityRepairRoute,
 } from "./taskCenterUtils.ts";
 
 const baseTask = {
@@ -111,4 +113,37 @@ test("task queue sorting keeps blocker and quality reminder ahead of progress", 
   const running = { ...baseTask, status: "running" };
   assert.ok(getTaskListPriority(blocker) < getTaskListPriority(quality));
   assert.ok(getTaskListPriority(quality) < getTaskListPriority(running));
+});
+
+test("task center promotes the safest available auto-director recovery action", () => {
+  const action = resolvePreferredAutoDirectorRecoveryAction({
+    availableActions: [
+      {
+        code: "retry_with_route_model",
+        kind: "mutation",
+        label: "按路由模型重试",
+        riskLevel: "medium",
+        requiresConfirm: true,
+      },
+      {
+        code: "retry_with_task_model",
+        kind: "mutation",
+        label: "按任务模型重试",
+        riskLevel: "low",
+        requiresConfirm: false,
+      },
+    ],
+  });
+
+  assert.equal(action?.code, "retry_with_task_model");
+});
+
+test("task center resolves the current pipeline checkpoint as quality repair route", () => {
+  const route = resolveTaskCenterQualityRepairRoute({
+    currentItemKey: "quality_repair",
+    resumeTarget: { stage: "pipeline" },
+    sourceRoute: "/novels/novel-1/edit?stage=pipeline&chapterId=chapter-4",
+  }, null);
+
+  assert.equal(route, "/novels/novel-1/edit?stage=pipeline&chapterId=chapter-4");
 });

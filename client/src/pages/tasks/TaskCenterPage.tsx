@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import type { AutoDirectorMutationActionCode } from "@ai-novel/shared/types/autoDirectorFollowUp";
 import type { DirectorContinuationMode } from "@ai-novel/shared/types/novelDirector";
 import type { TaskKind, TaskStatus, UnifiedTaskStep } from "@ai-novel/shared/types/task";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -9,6 +10,8 @@ import { continueNovelWorkflow } from "@/api/novelWorkflow";
 import {
   archiveTask,
   cancelTask,
+  executeAutoDirectorFollowUpAction,
+  getAutoDirectorFollowUpDetail,
   getTaskDetail,
   getTaskOverview,
   listRecoveryCandidates,
@@ -33,6 +36,7 @@ import TaskCenterSummaryCards from "./components/TaskCenterSummaryCards";
 import {
   ACTIVE_STATUSES,
   ARCHIVABLE_STATUSES,
+  createIdempotencyKey,
   formatCheckpoint,
   formatStatus,
   getTaskListPriority,
@@ -43,6 +47,8 @@ import {
   isTaskFailureQualityReminder,
   isTaskMustHandle,
   isTaskReplanRequired,
+  resolvePreferredAutoDirectorRecoveryAction,
+  resolveTaskCenterQualityRepairRoute,
   getTimestamp,
   serializeListParams,
   type TaskSortMode,
@@ -382,6 +388,48 @@ export default function TaskCenterPage() {
       && selectedDirectorRuntimeProjection?.status === "blocked"
     );
 
+  const autoDirectorFollowUpQuery = useQuery({
+    queryKey: queryKeys.tasks.autoDirectorFollowUpDetail(selectedId ?? "none"),
+    queryFn: () => getAutoDirectorFollowUpDetail(selectedId as string, { revalidate: true }),
+    enabled: Boolean(selectedId && isAutoDirectorTask),
+    retry: false,
+  });
+  const selectedAutoDirectorFollowUp = autoDirectorFollowUpQuery.data?.data ?? null;
+  const preferredAutoDirectorRecoveryAction = resolvePreferredAutoDirectorRecoveryAction(
+    selectedAutoDirectorFollowUp,
+  );
+  const selectedQualityRepairRoute = selectedTask && isAutoDirectorTask
+    ? resolveTaskCenterQualityRepairRoute(selectedTask, selectedAutoDirectorFollowUp)
+    : null;
+
+  const autoDirectorRecoveryMutation = useMutation({
+    mutationFn: (input: { taskId: string; actionCode: AutoDirectorMutationActionCode }) => (
+      executeAutoDirectorFollowUpAction(input.taskId, {
+        actionCode: input.actionCode,
+        idempotencyKey: createIdempotencyKey(input.taskId, input.actionCode),
+      })
+    ),
+    onSuccess: async (response) => {
+      const result = response.data;
+      if (!result) {
+        toast.error("恢复请求已返回，但没有可用的任务结果，请刷新后重试。");
+        return;
+      }
+      if (result.task) {
+        syncKnownTaskCaches(queryClient, result.task);
+      }
+      await Promise.all([
+        invalidateTaskQueries(),
+        queryClient.invalidateQueries({ queryKey: ["auto-director-follow-ups"] }),
+      ]);
+      if (result.code === "failed" || result.code === "forbidden" || result.code === "state_changed") {
+        toast.error(result.message || "当前状态已变化，请刷新后重试。");
+        return;
+      }
+      toast.success(result.message || "AI 已从最近检查点继续处理。");
+    },
+  });
+
   const detailActions: TaskCenterActionSpec[] = [];
   if (selectedTask && !isAutoDirectorTask && needsCandidateSelection) {
     detailActions.push({
@@ -501,6 +549,24 @@ export default function TaskCenterPage() {
         },
       }
     : null;
+  const priorityFailureActions = selectedTask && isAutoDirectorTask
+    ? [
+        ...(preferredAutoDirectorRecoveryAction ? [{
+          label: autoDirectorRecoveryMutation.isPending ? "AI 正在处理..." : "让 AI 处理并继续",
+          disabled: autoDirectorRecoveryMutation.isPending,
+          onClick: () => autoDirectorRecoveryMutation.mutate({
+            taskId: selectedTask.id,
+            actionCode: (preferredAutoDirectorRecoveryAction.executorActionCode
+              ?? preferredAutoDirectorRecoveryAction.code) as AutoDirectorMutationActionCode,
+          }),
+        }] : []),
+        ...(selectedQualityRepairRoute ? [{
+          label: "打开质量修复",
+          disabled: false,
+          onClick: () => navigate(selectedQualityRepairRoute),
+        }] : []),
+      ]
+    : [];
 
   const listErrorMessage = listQuery.error instanceof Error ? listQuery.error.message : listQuery.isError ? "任务列表读取失败，请重试。" : null;
   const overviewErrorMessage = overviewQuery.error instanceof Error
@@ -664,6 +730,7 @@ export default function TaskCenterPage() {
           noticeSeverity={selectedTask ? getTaskNoticeSeverity(selectedTask) : "normal"}
           noticeTitle={selectedTask ? getTaskNoticeTitle(selectedTask) : "任务提醒"}
           failureAction={failureAction}
+          priorityFailureActions={priorityFailureActions}
           failureIsQualityReminder={selectedTaskHasQualityFailure}
           actions={detailActions}
           steps={selectedTaskSteps}

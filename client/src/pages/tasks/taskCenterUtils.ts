@@ -1,7 +1,8 @@
 ﻿import type {
   AutoDirectorAction,
+  AutoDirectorFollowUpDetail,
 } from "@ai-novel/shared/types/autoDirectorFollowUp";
-import type { TaskKind, TaskStatus, UnifiedTaskSummary } from "@ai-novel/shared/types/task";
+import type { TaskKind, TaskStatus, UnifiedTaskDetail, UnifiedTaskSummary } from "@ai-novel/shared/types/task";
 import type {
   NovelWorkflowMilestoneType,
   NovelWorkflowResumeTarget,
@@ -285,4 +286,45 @@ export function formatFollowUpPriority(priority: "P0" | "P1" | "P2"): string {
 
 export function followUpActionVariant(action: AutoDirectorAction): "default" | "outline" {
   return action.kind === "navigation" || action.riskLevel !== "low" ? "outline" : "default";
+}
+
+const AUTO_DIRECTOR_RECOVERY_ACTION_PRIORITY = [
+  "continue_generic",
+  "continue_auto_execution",
+  "retry_with_task_model",
+  "retry_with_route_model",
+] as const;
+
+export function resolvePreferredAutoDirectorRecoveryAction(
+  followUp: Pick<AutoDirectorFollowUpDetail, "availableActions"> | null | undefined,
+): AutoDirectorAction | null {
+  const mutationActions = followUp?.availableActions.filter((action) => action.kind === "mutation") ?? [];
+  for (const actionCode of AUTO_DIRECTOR_RECOVERY_ACTION_PRIORITY) {
+    const action = mutationActions.find((candidate) => (
+      (candidate.executorActionCode ?? candidate.code) === actionCode
+    ));
+    if (action) {
+      return action;
+    }
+  }
+  return null;
+}
+
+export function resolveTaskCenterQualityRepairRoute(
+  task: Pick<UnifiedTaskDetail, "currentItemKey" | "resumeTarget" | "sourceRoute">,
+  followUp: Pick<AutoDirectorFollowUpDetail, "availableActions" | "replanUrl"> | null | undefined,
+): string | null {
+  const replanAction = followUp?.availableActions.find((action) => (
+    action.kind === "navigation" && action.code === "go_replan" && action.targetUrl?.trim()
+  ));
+  const explicitRoute = replanAction?.targetUrl?.trim() || followUp?.replanUrl?.trim();
+  if (explicitRoute) {
+    return explicitRoute;
+  }
+
+  const sourceRoute = task.sourceRoute?.trim();
+  const isQualityRepairTarget = task.resumeTarget?.stage === "pipeline"
+    || task.currentItemKey === "quality_repair"
+    || sourceRoute?.includes("stage=pipeline");
+  return isQualityRepairTarget && sourceRoute ? sourceRoute : null;
 }

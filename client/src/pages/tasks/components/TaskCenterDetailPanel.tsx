@@ -45,6 +45,7 @@ interface TaskCenterDetailPanelProps {
   noticeSeverity: TaskQueueSeverity;
   noticeTitle: string;
   failureAction?: InlineTaskAction | null;
+  priorityFailureActions?: InlineTaskAction[];
   failureIsQualityReminder: boolean;
   actions: TaskCenterActionSpec[];
   steps: UnifiedTaskStep[];
@@ -103,10 +104,25 @@ export default function TaskCenterDetailPanel(props: TaskCenterDetailPanelProps)
                 severity={props.failureIsQualityReminder ? "quality" : "blocking"}
                 title={props.failureIsQualityReminder ? "质量提醒" : "任务阻塞"}
                 description={task.failureSummary ?? "任务记录了需要处理的失败状态。"}
-                action={props.failureAction ? (
-                  <Button size="sm" variant="outline" disabled={props.failureAction.disabled} onClick={props.failureAction.onClick}>
-                    {props.failureAction.label}
-                  </Button>
+                action={props.priorityFailureActions?.length || props.failureAction ? (
+                  <div className="flex flex-wrap items-center justify-end gap-2">
+                    {props.priorityFailureActions?.map((action, index) => (
+                      <Button
+                        key={`${action.label}-${index}`}
+                        size="sm"
+                        variant={index === 0 ? "default" : "outline"}
+                        disabled={action.disabled}
+                        onClick={action.onClick}
+                      >
+                        {action.label}
+                      </Button>
+                    ))}
+                    {props.failureAction ? (
+                      <Button size="sm" variant="outline" disabled={props.failureAction.disabled} onClick={props.failureAction.onClick}>
+                        {props.failureAction.label}
+                      </Button>
+                    ) : null}
+                  </div>
                 ) : undefined}
               />
             ) : null}
@@ -126,7 +142,7 @@ export default function TaskCenterDetailPanel(props: TaskCenterDetailPanelProps)
                 compact
                 tone="info"
                 title="导演任务操作入口"
-                description="继续、恢复、切换模型和推进策略请回到小说页面的执行详情处理；任务中心保留状态、取消、归档和来源入口。"
+                description="任务阻塞提示提供常用恢复和质量修复；切换模型和详细推进策略可在小说页面的执行详情中处理。"
               />
             ) : null}
 
