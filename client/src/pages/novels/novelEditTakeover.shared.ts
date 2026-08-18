@@ -75,6 +75,9 @@ export function buildTakeoverTitle(input: {
     }
   }
   if (input.mode === "failed") {
+    if (input.checkpointType === "replan_required") {
+      return `《${input.novelTitle}》需要处理质量建议`;
+    }
     if (input.checkpointType === "chapter_batch_ready") {
       return `《${input.novelTitle}》${input.scopeLabel}自动执行已暂停`;
     }
@@ -119,6 +122,9 @@ export function buildTakeoverDescription(input: {
     }
   }
   if (input.mode === "failed") {
+    if (input.checkpointType === "replan_required") {
+      return "当前章节已保存，但质量闭环建议调整相邻章节。你可以打开质量修复，也可以保留这条建议并从最近进度继续。";
+    }
     if (input.checkpointType === "chapter_batch_ready") {
       return `${input.scopeLabel}自动执行已暂停。可以先查看执行详情或质量修复区，再决定是否继续自动执行。`;
     }
@@ -134,8 +140,8 @@ export function buildContinueAutoExecutionActionLabel(scopeLabel: string, isPend
   return isPending ? "继续执行中..." : `继续自动执行${scopeLabel}`;
 }
 
-export function buildSkipQualityRepairActionLabel(scopeLabel: string, isPending: boolean): string {
-  return isPending ? "继续执行中..." : `跳过本次建议，继续${scopeLabel}`;
+export function buildSkipQualityRepairActionLabel(_scopeLabel: string, isPending: boolean): string {
+  return isPending ? "正在从最近进度恢复..." : `跳过本次质量建议，从最近进度恢复`;
 }
 
 export function buildContinueAutoExecutionToast(scopeLabel: string): string {

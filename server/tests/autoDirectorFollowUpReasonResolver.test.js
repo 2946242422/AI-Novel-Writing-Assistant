@@ -45,7 +45,22 @@ test("follow-up resolver returns replan metadata", () => {
   assert.ok(result);
   assert.equal(result.reason, "replan_required");
   assert.equal(result.priority, "P1");
-  assert.deepEqual(actionCodes(result), ["go_replan", "open_detail"]);
+  assert.deepEqual(actionCodes(result), ["continue_auto_execution", "go_replan", "open_detail"]);
+  assert.equal(result.availableActions[0].riskLevel, "medium");
+  assert.equal(result.availableActions[0].requiresConfirm, true);
+  assert.equal(result.supportsBatch, false);
+});
+
+test("follow-up resolver keeps failed replan checkpoints on recovery actions", () => {
+  const result = resolveAutoDirectorFollowUpReason({
+    status: "failed",
+    checkpointType: "replan_required",
+  });
+
+  assert.ok(result);
+  assert.equal(result.reason, "replan_required");
+  assert.equal(result.priority, "P0");
+  assert.deepEqual(actionCodes(result), ["continue_auto_execution", "go_replan", "open_detail"]);
 });
 
 test("follow-up resolver exposes chapter-batch auto-execution metadata", () => {

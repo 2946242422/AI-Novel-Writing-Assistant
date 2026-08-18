@@ -471,6 +471,51 @@ test("validateAutoDirectorAction marks safe follow-up continue with required che
   assert.equal(result.nextAction, "continue_auto_execution");
 });
 
+test("validateAutoDirectorAction allows failed replan checkpoints to continue as recorded quality debt", () => {
+  const result = validateAutoDirectorAction({
+    source: "web",
+    actionCode: "continue_auto_execution",
+    task: {
+      id: "task-replan-failed",
+      lane: "auto_director",
+      status: "failed",
+      checkpointType: "replan_required",
+      pendingManualRecovery: false,
+      novelId: "novel-1",
+      seedPayload: {
+        autoExecution: {
+          enabled: true,
+          scopeLabel: "全书",
+        },
+      },
+    },
+  });
+
+  assert.equal(result.allowed, true);
+  assert.equal(result.nextAction, "continue_auto_execution");
+  assert.match(result.warnings.join("\n"), /质量债|最近进度/);
+});
+
+test("validateAutoDirectorAction requires in-app confirmation before skipping a replan checkpoint", () => {
+  const result = validateAutoDirectorAction({
+    source: "wecom",
+    actionCode: "continue_auto_execution",
+    task: {
+      id: "task-replan-channel",
+      lane: "auto_director",
+      status: "failed",
+      checkpointType: "replan_required",
+      pendingManualRecovery: false,
+      novelId: "novel-1",
+      seedPayload: null,
+    },
+  });
+
+  assert.equal(result.allowed, false);
+  assert.match(result.blockingReasons.join("\n"), /站内确认/);
+  assert.equal(result.nextAction, "open_follow_up_center");
+});
+
 test("resolveAutoDirectorFollowUpSection gives validation issues top priority over actionable waiting state", () => {
   const section = resolveAutoDirectorFollowUpSection({
     status: "waiting_approval",

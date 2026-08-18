@@ -391,6 +391,9 @@ export function validateAutoDirectorTakeoverRequest(
 export function validateAutoDirectorAction(input: AutoDirectorActionValidationInput): AutoDirectorValidationResult {
   const affectedScope = resolveScopeFromTask(input);
   const blockingReasons: string[] = [];
+  const isReplanRecovery = input.actionCode === "continue_auto_execution"
+    && input.task.checkpointType === "replan_required"
+    && (input.task.status === "failed" || input.task.status === "waiting_approval");
 
   if (input.task.lane && input.task.lane !== "auto_director") {
     blockingReasons.push("当前任务不是自动导演任务，不能使用自动导演动作。");
@@ -404,10 +407,17 @@ export function validateAutoDirectorAction(input: AutoDirectorActionValidationIn
   if (CHANNEL_SOURCES.has(input.source) && input.actionCode === "retry_with_route_model") {
     blockingReasons.push("按路由模型重试需要站内确认，请打开跟进中心处理。");
   }
-  if (input.actionCode === "continue_auto_execution" && input.task.status !== "waiting_approval") {
+  if (CHANNEL_SOURCES.has(input.source) && isReplanRecovery) {
+    blockingReasons.push("跳过质量建议需要站内确认，请打开跟进中心处理。");
+  }
+  if (input.actionCode === "continue_auto_execution" && input.task.status !== "waiting_approval" && !isReplanRecovery) {
     blockingReasons.push("当前任务不在等待继续状态，请先重新校验任务状态。");
   }
-  if (input.actionCode === "continue_auto_execution" && input.task.checkpointType !== "chapter_batch_ready") {
+  if (
+    input.actionCode === "continue_auto_execution"
+    && input.task.checkpointType !== "chapter_batch_ready"
+    && !isReplanRecovery
+  ) {
     blockingReasons.push("当前检查点不能直接继续章节执行，请先查看任务详情。");
   }
   if ((input.actionCode === "retry_with_task_model" || input.actionCode === "retry_with_route_model") && input.task.status !== "failed" && input.task.status !== "cancelled") {
@@ -420,7 +430,9 @@ export function validateAutoDirectorAction(input: AutoDirectorActionValidationIn
     affectedScope,
     warnings: input.actionCode === "retry_with_route_model"
       ? ["按路由模型重试会使用当前模型路由，结果可能与任务原模型不同。"]
-      : [],
+      : isReplanRecovery
+        ? ["当前正文会保留，本次质量建议将记为质量债，自动导演从最近进度继续。"]
+        : [],
     requiredActions: input.actionCode === "continue_auto_execution"
       ? [
           requiredAction({

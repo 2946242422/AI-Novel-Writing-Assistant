@@ -93,6 +93,9 @@ function formatCheckpoint(checkpoint: NovelWorkflowMilestoneType | null | undefi
   if (checkpoint === "chapter_batch_ready") {
     return `${resolvedScopeLabel}自动执行已暂停`;
   }
+  if (checkpoint === "replan_required") {
+    return "等待处理质量建议";
+  }
   if (checkpoint === "step_review_required") {
     return "当前步骤待检查";
   }
@@ -340,6 +343,19 @@ export default function NovelTaskDrawer({
   const canShowManualImpact = capabilities?.canInspectManualEditImpact !== false && Boolean(task);
   const canShowRetryWithOverrideModel = capabilities?.canRetryWithOverrideModel === true;
   const canShowFollowUp = capabilities?.availableFollowUps !== false && Boolean(followUp);
+  const promotedRecoveryAction = task?.checkpointType === "replan_required"
+    ? actions.find((action) => action.label.includes("从最近进度恢复")) ?? null
+    : null;
+  const promotedQualityRepairAction = task?.checkpointType === "replan_required"
+    ? actions.find((action) => action.label.includes("打开质量修复")) ?? null
+    : null;
+  const inlineActions = actions.filter((action) => (
+    action !== promotedRecoveryAction && action !== promotedQualityRepairAction
+  ));
+  const inlineFollowUpActions = followUp?.availableActions.filter((action) => !(
+    task?.checkpointType === "replan_required"
+    && (action.code === "continue_auto_execution" || action.code === "go_replan")
+  )) ?? [];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -462,7 +478,7 @@ export default function NovelTaskDrawer({
                     </div>
                   ) : null}
                   <div className="flex flex-wrap gap-2">
-                    {followUp.availableActions.map((action) => (
+                    {inlineFollowUpActions.map((action) => (
                       <Button
                         key={action.code}
                         type="button"
@@ -529,9 +545,9 @@ export default function NovelTaskDrawer({
 
               <section className="space-y-3">
                 <div className="text-sm font-medium text-foreground">快捷动作</div>
-                {actions.length > 0 ? (
+                {inlineActions.length > 0 ? (
                   <div className="flex flex-wrap gap-2">
-                    {actions.map((action) => (
+                    {inlineActions.map((action) => (
                       <Button
                         key={action.label}
                         type="button"
@@ -653,9 +669,29 @@ export default function NovelTaskDrawer({
         </div>
 
         <div className="space-y-2 border-t border-border/70 px-5 py-4">
-          {primaryAction ? (
+          {promotedRecoveryAction ? (
+            <Button
+              type="button"
+              className="w-full"
+              disabled={promotedRecoveryAction.disabled}
+              onClick={promotedRecoveryAction.onClick}
+            >
+              {promotedRecoveryAction.label}
+            </Button>
+          ) : primaryAction ? (
             <Button type="button" className="w-full" onClick={() => handleProjectionAction(primaryAction)}>
               {primaryActionLabel || "继续处理"}
+            </Button>
+          ) : null}
+          {promotedQualityRepairAction ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="w-full"
+              disabled={promotedQualityRepairAction.disabled}
+              onClick={promotedQualityRepairAction.onClick}
+            >
+              {promotedQualityRepairAction.label}
             </Button>
           ) : null}
           {task?.sourceRoute ? (

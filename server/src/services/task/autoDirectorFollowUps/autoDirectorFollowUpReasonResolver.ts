@@ -177,6 +177,32 @@ export function resolveAutoDirectorFollowUpReason(
     });
   }
 
+  if (
+    input.checkpointType === "replan_required"
+    && (input.status === "failed" || input.status === "waiting_approval")
+  ) {
+    return finalizeResolvedReason({
+      reason: "replan_required",
+      priority: input.status === "failed" ? "P0" : "P1",
+      availableActions: [
+        mutationAction({
+          code: "continue_auto_execution",
+          label: "跳过本次质量建议，从最近进度恢复",
+          riskLevel: "medium",
+          requiresConfirm: true,
+        }),
+        navigationAction({
+          code: "go_replan",
+          label: "打开质量修复",
+        }),
+        navigationAction({
+          code: "open_detail",
+          label: "查看详情",
+        }),
+      ],
+    });
+  }
+
   if (input.status === "failed") {
     return finalizeResolvedReason({
       reason: "runtime_failed",
@@ -241,23 +267,6 @@ export function resolveAutoDirectorFollowUpReason(
         navigationAction({
           code: "go_candidate_selection",
           label: getContinueLabel(input, "去确认书级方向"),
-        }),
-        navigationAction({
-          code: "open_detail",
-          label: "查看详情",
-        }),
-      ],
-    });
-  }
-
-  if (input.checkpointType === "replan_required") {
-    return finalizeResolvedReason({
-      reason: "replan_required",
-      priority: "P1",
-      availableActions: [
-        navigationAction({
-          code: "go_replan",
-          label: getContinueLabel(input, "处理重规划"),
         }),
         navigationAction({
           code: "open_detail",

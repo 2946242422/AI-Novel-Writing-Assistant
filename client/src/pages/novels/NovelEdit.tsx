@@ -1287,6 +1287,16 @@ export default function NovelEdit() {
       }
       return;
     }
+    if (action.requiresConfirm) {
+      const confirmed = window.confirm(
+        action.code === "continue_auto_execution"
+          ? "确认跳过本次质量建议并从最近进度恢复？当前正文会保留，本次问题将记为质量债。"
+          : `确认执行“${action.label}”？`,
+      );
+      if (!confirmed) {
+        return;
+      }
+    }
     executeFollowUpActionMutation.mutate(
       {
         directorTaskId: activeAutoDirectorFollowUp?.directorTaskId ?? actionTargetDirectorTaskId,
@@ -1585,13 +1595,18 @@ export default function NovelEdit() {
         onClick: () => openChapterExecution(task),
         variant: "default",
       });
-    } else if (mode === "action_required" && task.checkpointType === "replan_required") {
+    } else if ((mode === "action_required" || mode === "failed") && task.checkpointType === "replan_required") {
       actions.push({
         label: buildSkipQualityRepairActionLabel(autoExecutionScopeLabel, continueAutoExecutionMutation.isPending),
-        onClick: () => continueAutoExecutionMutation.mutate({
-          directorTaskId: task.id,
-          continuationMode: "skip_quality_repair",
-        }),
+        onClick: () => {
+          if (!window.confirm("确认跳过本次质量建议并从最近进度恢复？当前正文会保留，本次问题将记为质量债。")) {
+            return;
+          }
+          continueAutoExecutionMutation.mutate({
+            directorTaskId: task.id,
+            continuationMode: "skip_quality_repair",
+          });
+        },
         variant: "default",
         disabled: continueAutoExecutionMutation.isPending,
       });
@@ -1858,14 +1873,22 @@ export default function NovelEdit() {
         onClick: () => openCandidateSelection(task.id),
         variant: "default",
       });
-    } else if (task.status === "waiting_approval" && task.checkpointType === "replan_required") {
+    } else if (
+      (task.status === "waiting_approval" || task.status === "failed")
+      && task.checkpointType === "replan_required"
+    ) {
       const autoExecutionScopeLabel = resolveAutoExecutionScopeLabel(task);
       actions.push({
         label: buildSkipQualityRepairActionLabel(autoExecutionScopeLabel, continueAutoExecutionMutation.isPending),
-        onClick: () => continueAutoExecutionMutation.mutate({
-          directorTaskId: task.id,
-          continuationMode: "skip_quality_repair",
-        }),
+        onClick: () => {
+          if (!window.confirm("确认跳过本次质量建议并从最近进度恢复？当前正文会保留，本次问题将记为质量债。")) {
+            return;
+          }
+          continueAutoExecutionMutation.mutate({
+            directorTaskId: task.id,
+            continuationMode: "skip_quality_repair",
+          });
+        },
         variant: "default",
         disabled: continueAutoExecutionMutation.isPending,
       });

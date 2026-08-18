@@ -162,7 +162,7 @@ test("auto director follow-up action executor continues auto execution and dedup
   prisma.autoDirectorFollowUpActionLog.create = originals.actionLogCreate;
 });
 
-test("auto director follow-up action executor sends skip_quality_repair for quality-repair checkpoints", async () => {
+test("auto director follow-up action executor restores failed replan checkpoints with skip_quality_repair", async () => {
   const executor = new AutoDirectorFollowUpActionExecutor();
   const calls = [];
   const originals = {
@@ -182,16 +182,17 @@ test("auto director follow-up action executor sends skip_quality_repair for qual
   executor.workflowService.healAutoDirectorTaskState = async () => false;
   executor.workflowService.getTaskByIdWithoutHealing = async () => buildWorkflowRow({
     id: "task_quality_repair_continue",
+    status: "failed",
     currentStage: "质量修复",
     currentItemKey: "quality_repair",
-    checkpointType: "chapter_batch_ready",
+    checkpointType: "replan_required",
     currentItemLabel: "等待跳过本次建议后继续自动执行",
   });
   executor.novelDirectorService.continueTask = async (taskId, input) => {
     calls.push({ taskId, input });
   };
   executor.workflowTaskAdapter.detail = async (taskId) => buildTaskDetail(taskId, {
-    checkpointType: "chapter_batch_ready",
+    checkpointType: "replan_required",
     currentStage: "质量修复",
     currentItemKey: "quality_repair",
   });
