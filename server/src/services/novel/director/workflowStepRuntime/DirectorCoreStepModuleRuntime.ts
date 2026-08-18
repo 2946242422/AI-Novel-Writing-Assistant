@@ -31,6 +31,7 @@ import {
   resolveStructuredOutlineRecoveryCursor,
   type StructuredOutlineRecoveryCursor,
 } from "../recovery/novelDirectorStructuredOutlineRecovery";
+import { directorRiskAssessmentService } from "../risk/DirectorRiskAssessmentService";
 
 export interface DirectorCoreStepModuleRuntimeDeps {
   workflowService: NovelWorkflowService;
@@ -73,6 +74,8 @@ export function buildDefaultDirectorCoreStepModuleRuntimeDeps(): DirectorCoreSte
       novelId: string,
       extra?: Record<string, unknown>,
     ) => buildDirectorWorkflowSeedPayload(input, novelId, extra),
+    assessQualityRepair: (input) => directorRiskAssessmentService.assessQualityRepair(input),
+    replanNovel: (novelId, input) => novelService.replanNovel(novelId, input),
     autoConfirmPendingCandidates: (novelId: string) => characterDynamicsService.autoConfirmPendingCandidates(novelId),
     isPendingReviewAutoPromotionEnabled: () => qualityDebtSettingsService.isAutoPromotionEnabled(),
     autoPromotePendingReviewProposals: async (input) => {

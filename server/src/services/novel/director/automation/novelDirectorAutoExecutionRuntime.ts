@@ -28,6 +28,7 @@ import {
   buildFailureCircuitBreaker,
   isDirectorCircuitBreakerOpen,
   resolveUsageCircuitBreaker,
+  runFullBookAutopilotReplanNotice,
   stopAutoExecutionForCircuitBreaker,
   withCircuitBreakerState,
 } from "./novelDirectorAutoExecutionCircuitBreakerRuntime";
@@ -341,6 +342,40 @@ export class NovelDirectorAutoExecutionRuntime {
             ({ range, autoExecution } = await resolveAutoExecutionRuntimeRangeAndState(this.deps, {
               novelId: input.novelId,
               existingState: noticeAction.checkpointState,
+              pipelineJobId: null,
+              pipelineStatus: "queued",
+              allowLazyChapterPlanning,
+            }));
+            await syncAutoExecutionTaskState(this.deps, {
+              taskId: input.taskId,
+              novelId: input.novelId,
+              request: input.request,
+              range,
+              autoExecution,
+              isBackgroundRunning: true,
+              resumeStage: "pipeline",
+            });
+            continue autoExecutionLoop;
+          }
+          if (noticeAction.action === "auto_replan" && this.deps.replanNovel) {
+            const replanResult = await runFullBookAutopilotReplanNotice({
+              deps: this.deps,
+              taskId: input.taskId,
+              novelId: input.novelId,
+              request: input.request,
+              range,
+              autoExecution,
+              checkpointState: noticeAction.checkpointState,
+              noticeSummary: noticeAction.checkpointState.latestQualityDisposition?.reason
+                ?? job.noticeSummary.trim(),
+            });
+            if (replanResult.stopped) {
+              return;
+            }
+            pipelineJobId = "";
+            ({ range, autoExecution } = await resolveAutoExecutionRuntimeRangeAndState(this.deps, {
+              novelId: input.novelId,
+              existingState: replanResult.autoExecution ?? noticeAction.checkpointState,
               pipelineJobId: null,
               pipelineStatus: "queued",
               allowLazyChapterPlanning,

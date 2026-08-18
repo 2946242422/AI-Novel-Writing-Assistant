@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import {
-  buildSkipQualityRepairActionLabel,
+  buildAutoResolveQualityActionLabel,
   buildTakeoverDescription,
   buildTakeoverTitle,
 } from "./novelEditTakeover.shared.ts";
@@ -23,10 +23,10 @@ test("failed replan checkpoints explain the recoverable quality decision", () =>
   }), /当前章节已保存/);
 });
 
-test("quality recovery label states both consequence and recovery point", () => {
+test("quality recovery exposes one AI-first continuation action", () => {
   assert.equal(
-    buildSkipQualityRepairActionLabel("全书", false),
-    "跳过本次质量建议，从最近进度恢复",
+    buildAutoResolveQualityActionLabel(false),
+    "让 AI 处理并继续",
   );
-  assert.equal(buildSkipQualityRepairActionLabel("全书", true), "正在从最近进度恢复...");
+  assert.equal(buildAutoResolveQualityActionLabel(true), "AI 正在判断并继续...");
 });

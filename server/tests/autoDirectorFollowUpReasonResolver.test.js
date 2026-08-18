@@ -46,9 +46,23 @@ test("follow-up resolver returns replan metadata", () => {
   assert.equal(result.reason, "replan_required");
   assert.equal(result.priority, "P1");
   assert.deepEqual(actionCodes(result), ["continue_auto_execution", "go_replan", "open_detail"]);
-  assert.equal(result.availableActions[0].riskLevel, "medium");
-  assert.equal(result.availableActions[0].requiresConfirm, true);
+  assert.equal(result.availableActions[0].riskLevel, "low");
+  assert.equal(result.availableActions[0].requiresConfirm, false);
+  assert.equal(result.availableActions[0].label, "让 AI 处理并继续");
   assert.equal(result.supportsBatch, false);
+});
+
+test("manual recovery at a replan checkpoint keeps the single AI-first action", () => {
+  const result = resolveAutoDirectorFollowUpReason({
+    status: "failed",
+    checkpointType: "replan_required",
+    pendingManualRecovery: true,
+  });
+
+  assert.ok(result);
+  assert.equal(result.reason, "manual_recovery_required");
+  assert.equal(result.availableActions[0].code, "continue_generic");
+  assert.equal(result.availableActions[0].label, "让 AI 处理并继续");
 });
 
 test("follow-up resolver keeps failed replan checkpoints on recovery actions", () => {

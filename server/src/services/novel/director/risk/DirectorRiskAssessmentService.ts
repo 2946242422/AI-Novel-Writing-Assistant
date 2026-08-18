@@ -222,7 +222,9 @@ export class DirectorRiskAssessmentService {
       failureStage: "quality_repair",
       failureType: risk.noticeCode ?? risk.riskLevel,
       category: risk.riskLevel === "replan" ? "replan" : "chapter_repair",
-      forcePause: risk.riskLevel === "replan",
+      // 重规划是一种可自动执行的处置，不等同于安全暂停。
+      // 只有 AI 判定无可用正文、严重事实冲突或运行安全风险时才允许暂停。
+      forcePause: false,
       // A large-scope repair is still chapter-level quality work. It can be
       // surfaced at high risk but cannot pause the whole-book director.
       localOnly: risk.riskLevel !== "replan",

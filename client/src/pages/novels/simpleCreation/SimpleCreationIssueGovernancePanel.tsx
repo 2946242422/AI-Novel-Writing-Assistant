@@ -18,6 +18,7 @@ import NovelDirectorIssuePolicyCard from "../components/NovelDirectorIssuePolicy
 
 const ACTION_LABELS: Record<DirectorIssueAction, string> = {
   auto_retry: "自动重试",
+  auto_replan: "AI 自动重规划",
   continue_with_warning: "提醒后继续",
   pause_for_manual: "暂停处理",
   fail_task: "结束任务",

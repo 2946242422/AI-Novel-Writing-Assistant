@@ -15,7 +15,6 @@ import { directorIssueAssessmentPrompt } from "../../../../prompting/prompts/dir
 import { directorAutomationLedgerEventService } from "../runtime/DirectorAutomationLedgerEventService";
 
 const FORCED_SCORE_CODES = new Set<DirectorIssueCode>([
-  "quality.replan_required",
   "runtime.token_budget_exceeded",
   "runtime.protected_content",
   "runtime.data_integrity",

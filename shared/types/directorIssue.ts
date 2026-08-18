@@ -33,6 +33,7 @@ export type DirectorIssueCode = z.infer<typeof directorIssueCodeSchema>;
 
 export const DIRECTOR_ISSUE_ACTIONS = [
   "auto_retry",
+  "auto_replan",
   "continue_with_warning",
   "pause_for_manual",
   "fail_task",
@@ -49,7 +50,7 @@ export interface DirectorIssueCatalogEntry {
   label: string;
   defaultAction: DirectorIssueAction;
   allowedActions: readonly DirectorIssueAction[];
-  exhaustedAction: Exclude<DirectorIssueAction, "auto_retry">;
+  exhaustedAction: Exclude<DirectorIssueAction, "auto_retry" | "auto_replan">;
   enforcedAction?: DirectorIssueAction;
   lockedReason?: string;
 }
@@ -66,8 +67,8 @@ export const DIRECTOR_ISSUE_CATALOG: readonly DirectorIssueCatalogEntry[] = [
   { code: "quality.acceptance_unavailable", category: "quality", label: "章节接收检查不可用", defaultAction: "continue_with_warning", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "continue_with_warning", lockedReason: "全书模式会保留可用正文并安排后续复查。" },
   { code: "quality.obligation_gap", category: "quality", label: "本章义务仍有缺口", defaultAction: "continue_with_warning", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "continue_with_warning", lockedReason: "全书模式会把局部义务缺口作为质量债继续。" },
   { code: "quality.local_repair_failed", category: "quality", label: "局部修复未安全应用", defaultAction: "continue_with_warning", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "continue_with_warning", lockedReason: "全书模式已有可用正文时会记录质量债并继续。" },
-  { code: "quality.loop_exhausted", category: "quality", label: "同类质量修复已耗尽", defaultAction: "continue_with_warning", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "pause_for_manual" },
-  { code: "quality.replan_required", category: "quality", label: "后续章节必须重规划", defaultAction: "pause_for_manual", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "pause_for_manual", enforcedAction: "pause_for_manual", lockedReason: "明确重规划必须在安全节点暂停。" },
+  { code: "quality.loop_exhausted", category: "quality", label: "同类质量修复已耗尽", defaultAction: "pause_for_manual", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "pause_for_manual" },
+  { code: "quality.replan_required", category: "quality", label: "相邻章节需要重规划", defaultAction: "auto_replan", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "pause_for_manual" },
   { code: "quality.replan_loop", category: "quality", label: "重规划重复循环", defaultAction: "continue_with_warning", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "pause_for_manual" },
   { code: "runtime.model_unavailable", category: "runtime", label: "创作模型不可用", defaultAction: "auto_retry", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "pause_for_manual" },
   { code: "runtime.service_unavailable", category: "runtime", label: "创作服务暂时不可用", defaultAction: "auto_retry", allowedActions: DIRECTOR_ISSUE_ACTIONS, exhaustedAction: "pause_for_manual" },
@@ -201,7 +202,12 @@ export function resolveDirectorIssueDecision(input: {
     reason = entry.lockedReason ?? "安全保护规则优先于用户偏好。";
   }
 
-  if (!locked && !configured && typeof input.occurrence.riskScore === "number") {
+  if (
+    !locked
+    && !configured
+    && action !== "auto_replan"
+    && typeof input.occurrence.riskScore === "number"
+  ) {
     if (
       input.occurrence.riskScore >= input.policy.pauseThreshold
       && entry.allowedActions.includes("pause_for_manual")
@@ -223,15 +229,17 @@ export function resolveDirectorIssueDecision(input: {
   if (fullBookWithUsableOutput && (
     entry.category === "quality"
     && input.occurrence.issueCode !== "quality.replan_required"
+    && input.occurrence.issueCode !== "quality.loop_exhausted"
   )) {
     action = action === "auto_retry" ? action : "continue_with_warning";
     locked = true;
     reason = "全书自动成书保留可用正文，将局部问题记录为质量债后继续。";
   }
 
-  if (action === "auto_retry" && input.occurrence.attempt >= input.occurrence.maxAttempts) {
+  if ((action === "auto_retry" || action === "auto_replan") && input.occurrence.attempt >= input.occurrence.maxAttempts) {
+    const exhaustedActionLabel = action === "auto_replan" ? "自动重规划" : "自动重试";
     action = entry.exhaustedAction;
-    reason = `自动重试已达到 ${input.occurrence.maxAttempts} 次上限。`;
+    reason = `${exhaustedActionLabel}已达到 ${input.occurrence.maxAttempts} 次上限。`;
   }
 
   if (action === "continue_with_warning" && !input.occurrence.hasUsableOutput) {

@@ -28,6 +28,7 @@ test("every stable issue code has one valid default policy", () => {
     assert.ok(entry.allowedActions.includes(entry.defaultAction), entry.code);
     assert.deepEqual([...entry.allowedActions].sort(), [...DIRECTOR_ISSUE_ACTIONS].sort(), entry.code);
     assert.notEqual(entry.exhaustedAction, "auto_retry", entry.code);
+    assert.notEqual(entry.exhaustedAction, "auto_replan", entry.code);
     for (const action of DIRECTOR_ISSUE_ACTIONS) {
       assert.equal(directorIssuePolicySchema.safeParse({
         noticeThreshold: 5,
@@ -60,10 +61,10 @@ test("user overrides are accepted while runtime safety actions remain enforced",
 test("local quality debt cannot pause a full-book run with usable content", () => {
   const policy = {
     ...DEFAULT_DIRECTOR_ISSUE_POLICY,
-    issueActions: { "quality.loop_exhausted": "fail_task" },
+    issueActions: { "quality.local_repair_failed": "fail_task" },
   };
   const decision = resolveDirectorIssueDecision({
-    occurrence: occurrence("quality.loop_exhausted"),
+    occurrence: occurrence("quality.local_repair_failed"),
     policy,
     policySource: "novel",
   });
@@ -71,12 +72,41 @@ test("local quality debt cannot pause a full-book run with usable content", () =
   assert.equal(decision.locked, true);
 });
 
-test("explicit replans and data safety issues remain locked", () => {
-  for (const code of ["quality.replan_required", "runtime.token_budget_exceeded", "runtime.data_integrity"]) {
+test("explicit replans use automatic adjacent planning while data safety issues remain locked", () => {
+  const replanDecision = resolveDirectorIssueDecision({
+    occurrence: occurrence("quality.replan_required"),
+    policy: DEFAULT_DIRECTOR_ISSUE_POLICY,
+  });
+  assert.equal(replanDecision.action, "auto_replan");
+  assert.equal(replanDecision.locked, false);
+
+  const highScoreReplan = resolveDirectorIssueDecision({
+    occurrence: occurrence("quality.replan_required", { riskScore: 8 }),
+    policy: DEFAULT_DIRECTOR_ISSUE_POLICY,
+  });
+  assert.equal(highScoreReplan.action, "auto_replan");
+
+  for (const code of ["runtime.token_budget_exceeded", "runtime.data_integrity"]) {
     const decision = resolveDirectorIssueDecision({ occurrence: occurrence(code), policy: DEFAULT_DIRECTOR_ISSUE_POLICY });
     assert.equal(decision.action, "pause_for_manual", code);
     assert.equal(decision.policySource, "safety", code);
   }
+});
+
+test("exhausted repeated quality handling pauses even when a usable draft exists", () => {
+  const decision = resolveDirectorIssueDecision({
+    occurrence: occurrence("quality.loop_exhausted"),
+    policy: DEFAULT_DIRECTOR_ISSUE_POLICY,
+  });
+  assert.equal(decision.action, "pause_for_manual");
+});
+
+test("automatic replan pauses after its retry budget is exhausted", () => {
+  const decision = resolveDirectorIssueDecision({
+    occurrence: occurrence("quality.replan_required", { attempt: 1, maxAttempts: 1 }),
+    policy: DEFAULT_DIRECTOR_ISSUE_POLICY,
+  });
+  assert.equal(decision.action, "pause_for_manual");
 });
 
 test("warning cannot continue when no usable output exists", () => {

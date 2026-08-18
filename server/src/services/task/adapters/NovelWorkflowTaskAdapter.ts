@@ -197,6 +197,8 @@ function compactSeedPayload(input: Record<string, unknown> | null): Record<strin
         totalChapterCount: autoExecution.totalChapterCount,
         completedChapterCount: autoExecution.completedChapterCount,
         mode: autoExecution.mode,
+        latestQualityDisposition: autoExecution.latestQualityDisposition,
+        qualityDebtSummaries: autoExecution.qualityDebtSummaries,
       })
       : undefined,
     styleIntentSummary: styleIntentSummary

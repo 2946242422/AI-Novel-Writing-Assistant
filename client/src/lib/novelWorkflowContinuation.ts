@@ -34,7 +34,7 @@ export function resolveWorkflowContinuationFeedback(
       ? `已跳过本次质量建议，自动导演会继续执行${scopeLabel}。`
       : options?.mode === "auto_execute_range"
           ? `已继续自动执行${scopeLabel}。`
-          : "自动导演已继续推进。",
+          : "AI 会判断轻修、记录建议或调整相邻章节，然后继续推进。",
   };
 }
 
@@ -50,7 +50,7 @@ export function resolveDirectorContinueMode(task: Pick<
     || task?.currentItemKey === "quality_repair"
     || task?.currentStage?.includes("质量")
   ) {
-    return "skip_quality_repair";
+    return "resume";
   }
   if (task?.checkpointType === "chapter_batch_ready") {
     return "auto_execute_range";

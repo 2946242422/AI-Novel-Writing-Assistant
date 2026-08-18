@@ -303,6 +303,7 @@ export interface DirectorAutoExecutionState extends DirectorAutoExecutionPlan {
   pipelineJobId?: string | null;
   pipelineStatus?: PipelineJobStatus | null;
   qualityRepairRisk?: DirectorQualityRepairRisk | null;
+  latestQualityDisposition?: DirectorQualityDisposition | null;
   circuitBreaker?: DirectorCircuitBreakerState | null;
 }
 
@@ -316,6 +317,27 @@ export interface DirectorQualityRepairRisk {
   repairMode?: string | null;
   affectedChapterCount?: number;
   remainingChapterCount?: number;
+}
+
+export const DIRECTOR_QUALITY_DISPOSITION_ACTIONS = [
+  "light_repair_and_continue",
+  "record_debt_and_continue",
+  "replan_adjacent_and_continue",
+  "pause_for_manual",
+] as const;
+
+export type DirectorQualityDispositionAction = typeof DIRECTOR_QUALITY_DISPOSITION_ACTIONS[number];
+
+/**
+ * AI 对章节质量异常的最终处置结论。上层 UI 只需展示这份结论，
+ * 检查点、模型重试、质量债等执行细节保留在高级详情中。
+ */
+export interface DirectorQualityDisposition {
+  action: DirectorQualityDispositionAction;
+  reason: string;
+  source: "ai_risk_assessment" | "structured_runtime" | "explicit_user" | "safety_guard";
+  affectedChapterOrders: number[];
+  decidedAt: string;
 }
 
 export const DIRECTOR_TAKEOVER_START_PHASES = [

@@ -4,6 +4,7 @@ import { taskDispatcher } from "../../../../../workers/TaskDispatcher";
 import { NovelWorkflowService } from "../../../workflow/NovelWorkflowService";
 import { directorIssueService, loadDirectorIssueTaskContext } from "../../issues";
 import { parsePayload, resolveNumberEnv } from "../DirectorCommandServiceHelpers";
+import type { DirectorIssueAction } from "@ai-novel/shared/types/directorIssue";
 
 const DEFAULT_STALE_AUTO_RECOVERY_MAX_ATTEMPTS = 2;
 const STALE_COMMAND_AUTO_RECOVERY_MESSAGE = "后台执行中断，系统已自动从最近进度继续。";
@@ -59,8 +60,8 @@ export class DirectorCommandLeaseService {
       const autoRecoverable = isAutoRecoverableStaleCommand(command);
       const governance = await loadDirectorIssueTaskContext(command.taskId);
       let actionApplied = false;
-      const applyAction = async (action: "auto_retry" | "continue_with_warning" | "pause_for_manual" | "fail_task") => {
-        if (action === "auto_retry" || action === "continue_with_warning") {
+      const applyAction = async (action: DirectorIssueAction) => {
+        if (action === "auto_retry" || action === "auto_replan" || action === "continue_with_warning") {
           await prisma.directorRunCommand.updateMany({
             where: { id: command.id },
             data: {

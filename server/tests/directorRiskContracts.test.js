@@ -64,7 +64,7 @@ test("director risk assessment schema preserves scored AI evidence and runtime h
 });
 
 test("director risk assessment prompt is registered with a strict structured contract", () => {
-  const registered = getRegisteredPromptAsset("director.risk.assessment", "v1");
+  const registered = getRegisteredPromptAsset("director.risk.assessment", "v2");
   assert.equal(registered, directorRiskAssessmentPrompt);
   assert.equal(directorRiskAssessmentPrompt.taskType, "critical_review");
   assert.equal(directorRiskAssessmentPrompt.mode, "structured");

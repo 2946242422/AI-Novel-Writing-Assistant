@@ -140,8 +140,8 @@ export function buildContinueAutoExecutionActionLabel(scopeLabel: string, isPend
   return isPending ? "继续执行中..." : `继续自动执行${scopeLabel}`;
 }
 
-export function buildSkipQualityRepairActionLabel(_scopeLabel: string, isPending: boolean): string {
-  return isPending ? "正在从最近进度恢复..." : `跳过本次质量建议，从最近进度恢复`;
+export function buildAutoResolveQualityActionLabel(isPending: boolean): string {
+  return isPending ? "AI 正在判断并继续..." : "让 AI 处理并继续";
 }
 
 export function buildContinueAutoExecutionToast(scopeLabel: string): string {

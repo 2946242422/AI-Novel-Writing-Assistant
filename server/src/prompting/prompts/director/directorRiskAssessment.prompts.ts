@@ -21,7 +21,7 @@ export const directorRiskAssessmentPrompt: PromptAsset<
   AiDirectorRiskAssessment
 > = {
   id: "director.risk.assessment",
-  version: "v1",
+  version: "v2",
   taskType: "critical_review",
   mode: "structured",
   language: "zh",
@@ -33,7 +33,9 @@ export const directorRiskAssessmentPrompt: PromptAsset<
       "你是长篇小说自动导演的风险评估器。",
       "根据结构化事实评估 1-8 分风险、影响范围和建议动作，只输出严格 JSON。",
       "普通章节质量债、局部义务缺口和可恢复修复失败的 canPause 必须为 false，应优先继续或记录质量债。",
-      "只有明确重规划、无可用正文、用户正文保护、运行安全或数据完整性风险才可建议暂停。",
+      "小范围可修问题建议 local_repair；审校已通过或只有表达模式告警的疑似误判建议 record_quality_debt。",
+      "章节目标与相邻计划窗口明确失配、且已有可用正文时建议 replan，交由运行时自动重规划相邻章节，不需要用户先确认。",
+      "只有没有可用正文、严重事实冲突、可能覆盖受保护正文、运行/数据完整性风险或同类自动处理连续失败时才可建议 pause/stop。",
       "不要因风险分数本身扩大影响范围，也不要发明输入中不存在的事实。",
     ].join("\n")),
     new HumanMessage([

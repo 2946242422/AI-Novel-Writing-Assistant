@@ -162,7 +162,7 @@ test("auto director follow-up action executor continues auto execution and dedup
   prisma.autoDirectorFollowUpActionLog.create = originals.actionLogCreate;
 });
 
-test("auto director follow-up action executor restores failed replan checkpoints with skip_quality_repair", async () => {
+test("auto director follow-up action executor returns failed replan checkpoints to AI disposition", async () => {
   const executor = new AutoDirectorFollowUpActionExecutor();
   const calls = [];
   const originals = {
@@ -209,7 +209,7 @@ test("auto director follow-up action executor restores failed replan checkpoints
   assert.deepEqual(calls, [{
     taskId: "task_quality_repair_continue",
     input: {
-      continuationMode: "skip_quality_repair",
+      continuationMode: "resume",
     },
   }]);
 

@@ -12,7 +12,7 @@ import {
   TaskQueueStatusBadge,
 } from "@/components/taskQueue";
 import { WorkspaceStateNotice } from "@/components/workspace";
-import { AlertTriangle, RefreshCw } from "lucide-react";
+import { AlertTriangle, ChevronDown, RefreshCw } from "lucide-react";
 import { AUTO_DIRECTOR_MOBILE_CLASSES } from "@/mobile/autoDirector";
 import {
   getFollowUpActionConsequence,
@@ -121,6 +121,41 @@ export function AutoDirectorFollowUpDetailPanel({
               description={detail.blockingReason ?? detail.followUpSummary}
             />
 
+            <div className="space-y-2">
+              <div className="text-sm font-medium">推荐动作</div>
+              {detail.availableActions.map((action) => (
+                <TaskQueueActionRow
+                  key={action.code}
+                  title={action.label}
+                  consequence={`${getFollowUpActionConsequence(action)} 风险：${getFollowUpActionRiskDescription(action)}`}
+                  tone={getFollowUpActionTone(action)}
+                  action={(
+                    <Button
+                      variant={action.kind === "mutation" && action.riskLevel === "low" ? "default" : "outline"}
+                      size="sm"
+                      className={AUTO_DIRECTOR_MOBILE_CLASSES.fullWidthAction}
+                      disabled={actionLoading}
+                      onClick={() => void onExecuteAction(selectedItem, action)}
+                    >
+                      {action.label}
+                    </Button>
+                  )}
+                />
+              ))}
+            </div>
+
+            <details className="group rounded-md border border-border/80 bg-muted/10">
+              <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-3 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <div>
+                  <div className="text-sm font-medium text-foreground">高级详情</div>
+                  <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                    查看检查点、审校原因、模型、里程碑和通道记录。
+                  </div>
+                </div>
+                <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+              </summary>
+              <div className="space-y-4 border-t border-border/70 px-3 py-3">
+
             {detail.riskNote ? (
               <WorkspaceStateNotice
                 compact
@@ -202,29 +237,6 @@ export function AutoDirectorFollowUpDetailPanel({
             ) : null}
 
             <div className="space-y-2">
-              <div className="text-sm font-medium">可执行动作</div>
-              {detail.availableActions.map((action) => (
-                <TaskQueueActionRow
-                  key={action.code}
-                  title={action.label}
-                  consequence={`${getFollowUpActionConsequence(action)} 风险：${getFollowUpActionRiskDescription(action)}`}
-                  tone={getFollowUpActionTone(action)}
-                  action={(
-                    <Button
-                      variant={action.kind === "mutation" && action.riskLevel === "low" ? "default" : "outline"}
-                      size="sm"
-                      className={AUTO_DIRECTOR_MOBILE_CLASSES.fullWidthAction}
-                      disabled={actionLoading}
-                      onClick={() => void onExecuteAction(selectedItem, action)}
-                    >
-                      {action.label}
-                    </Button>
-                  )}
-                />
-              ))}
-            </div>
-
-            <div className="space-y-2">
               <div className="text-sm font-medium">最近里程碑</div>
               <div className="space-y-2">
                 {detail.milestones.length === 0 ? (
@@ -270,6 +282,8 @@ export function AutoDirectorFollowUpDetailPanel({
                 ))}
               </div>
             </div>
+              </div>
+            </details>
           </>
         ) : null}
       </div>

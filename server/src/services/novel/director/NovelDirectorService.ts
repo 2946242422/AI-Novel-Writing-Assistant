@@ -93,6 +93,7 @@ import { loadPersistentDirectorRuntimeProjection } from "./projections/novelDire
 import { qualityDebtSettingsService } from "../../settings/QualityDebtSettingsService";
 import { directorRiskPolicySettingsService } from "../../settings/DirectorRiskPolicySettingsService";
 import { directorRiskPolicyOverrideService } from "./settings/DirectorRiskPolicyOverrideService";
+import { directorRiskAssessmentService } from "./risk/DirectorRiskAssessmentService";
 import { pendingReviewAutoPromotionService } from "../state/PendingReviewAutoPromotionService";
 import { parseSeedPayload } from "../workflow/novelWorkflow.shared";
 import { getDirectorInputFromSeedPayload } from "./runtime/novelDirectorHelpers";
@@ -146,6 +147,7 @@ export class NovelDirectorService {
         "low_risk_quality_repair_continue",
       )
     ),
+    assessQualityRepair: (input) => directorRiskAssessmentService.assessQualityRepair(input),
     recordAutoApproval: async ({ taskId, checkpointType, checkpointSummary }) => {
       await recordAutoDirectorAutoApprovalFromTask({
         taskId,

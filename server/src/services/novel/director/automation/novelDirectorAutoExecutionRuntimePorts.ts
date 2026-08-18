@@ -7,6 +7,10 @@ import type {
 } from "@ai-novel/shared/types/novelDirector";
 import type { NovelWorkflowCheckpoint } from "@ai-novel/shared/types/novelWorkflow";
 import type { DirectorStateProposalResolutionRunResult } from "../runtime/DirectorStateProposalResolutionService";
+import type {
+  DirectorRiskAssessmentInput,
+  DirectorRiskDecision,
+} from "../risk/DirectorRiskAssessmentService";
 import { directorAutomationLedgerEventService } from "../runtime/DirectorAutomationLedgerEventService";
 import type { DirectorAutoExecutionChapterRef } from "./novelDirectorAutoExecution";
 
@@ -119,6 +123,12 @@ export interface NovelDirectorAutoExecutionRuntimeDeps {
     qualityRepairRisk: DirectorQualityRepairRisk;
     remainingChapterCount: number;
   }) => Promise<boolean> | boolean;
+  assessQualityRepair?: (
+    input: Omit<DirectorRiskAssessmentInput,
+      "failureStage" | "failureType" | "category" | "forcePause" | "localOnly"> & {
+        qualityRepairRisk: DirectorQualityRepairRisk;
+      },
+  ) => Promise<DirectorRiskDecision | null>;
   recordAutoApproval?: (input: {
     taskId: string;
     checkpointType: NovelWorkflowCheckpoint;

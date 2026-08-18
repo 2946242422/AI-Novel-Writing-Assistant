@@ -152,7 +152,7 @@ export function resolveAutoDirectorFollowUpReason(
       availableActions: [
         mutationAction({
           code: "continue_generic",
-          label: "恢复任务",
+          label: input.checkpointType === "replan_required" ? "让 AI 处理并继续" : "恢复任务",
           riskLevel: "low",
           requiresConfirm: false,
         }),
@@ -187,9 +187,9 @@ export function resolveAutoDirectorFollowUpReason(
       availableActions: [
         mutationAction({
           code: "continue_auto_execution",
-          label: "跳过本次质量建议，从最近进度恢复",
-          riskLevel: "medium",
-          requiresConfirm: true,
+          label: "让 AI 处理并继续",
+          riskLevel: "low",
+          requiresConfirm: false,
         }),
         navigationAction({
           code: "go_replan",

@@ -3,6 +3,10 @@
   NovelWorkflowMilestoneType,
 } from "@ai-novel/shared/types/novelWorkflow";
 import type { DirectorBookAutomationAction } from "@ai-novel/shared/types/directorRuntime";
+import {
+  DIRECTOR_QUALITY_DISPOSITION_ACTIONS,
+  type DirectorQualityDisposition,
+} from "@ai-novel/shared/types/novelDirector";
 import type { TaskStatus } from "@ai-novel/shared/types/task";
 import type { CharacterResourceProposalSummary } from "@ai-novel/shared/types/characterResource";
 import type { AutoDirectorAction } from "@ai-novel/shared/types/autoDirectorFollowUp";
@@ -18,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Link } from "react-router-dom";
+import { ChevronDown } from "lucide-react";
 import TaskCenterManualEditImpactCard from "@/pages/tasks/components/TaskCenterManualEditImpactCard";
 import TaskCenterRuntimePolicyCard from "@/pages/tasks/components/TaskCenterRuntimePolicyCard";
 import type { NovelTaskDrawerState } from "./NovelEditView.types";
@@ -162,6 +167,102 @@ function formatFollowUpPriority(priority: "P0" | "P1" | "P2"): string {
     return "P1 尽快处理";
   }
   return "P2 稍后处理";
+}
+
+function formatQualityDisposition(disposition: DirectorQualityDisposition): {
+  title: string;
+  description: string;
+  status: string;
+} {
+  if (disposition.action === "light_repair_and_continue") {
+    return {
+      title: "AI 轻修后继续",
+      description: "AI 会保留本章事件和顺序，只修复影响阅读的局部问题。",
+      status: "自动处理",
+    };
+  }
+  if (disposition.action === "record_debt_and_continue") {
+    return {
+      title: "AI 记录建议后继续",
+      description: "当前正文可用，本次提示作为后续优化项保留，不打断整书创作。",
+      status: "自动处理",
+    };
+  }
+  if (disposition.action === "replan_adjacent_and_continue") {
+    return {
+      title: "AI 调整相邻章节后继续",
+      description: "AI 会以当前章为锚点重新分配附近章节职责，保留已有正文。",
+      status: "自动重规划",
+    };
+  }
+  return {
+    title: "需要你确认后继续",
+    description: "当前问题可能影响正文安全或事实一致性，AI 已停在安全位置。",
+    status: "安全暂停",
+  };
+}
+
+function readQualityDisposition(task: DrawerTask | null): DirectorQualityDisposition | null {
+  const seedPayload = task?.meta.seedPayload;
+  if (!seedPayload || typeof seedPayload !== "object" || Array.isArray(seedPayload)) {
+    return null;
+  }
+  const autoExecution = (seedPayload as { autoExecution?: unknown }).autoExecution;
+  if (!autoExecution || typeof autoExecution !== "object" || Array.isArray(autoExecution)) {
+    return null;
+  }
+  const candidate = (autoExecution as { latestQualityDisposition?: unknown }).latestQualityDisposition;
+  if (!candidate || typeof candidate !== "object" || Array.isArray(candidate)) {
+    return null;
+  }
+  const disposition = candidate as Partial<DirectorQualityDisposition>;
+  if (
+    !DIRECTOR_QUALITY_DISPOSITION_ACTIONS.includes(disposition.action as DirectorQualityDisposition["action"])
+    || typeof disposition.reason !== "string"
+    || typeof disposition.decidedAt !== "string"
+  ) {
+    return null;
+  }
+  return {
+    action: disposition.action as DirectorQualityDisposition["action"],
+    reason: disposition.reason,
+    source: disposition.source ?? "structured_runtime",
+    affectedChapterOrders: Array.isArray(disposition.affectedChapterOrders)
+      ? disposition.affectedChapterOrders.filter((item): item is number => typeof item === "number")
+      : [],
+    decidedAt: disposition.decidedAt,
+  };
+}
+
+function readQualityDebtSummaries(task: DrawerTask | null): Array<{
+  chapterOrder: number | null;
+  reason: string;
+}> {
+  const seedPayload = task?.meta.seedPayload;
+  if (!seedPayload || typeof seedPayload !== "object" || Array.isArray(seedPayload)) {
+    return [];
+  }
+  const autoExecution = (seedPayload as { autoExecution?: unknown }).autoExecution;
+  if (!autoExecution || typeof autoExecution !== "object" || Array.isArray(autoExecution)) {
+    return [];
+  }
+  const summaries = (autoExecution as { qualityDebtSummaries?: unknown }).qualityDebtSummaries;
+  if (!Array.isArray(summaries)) {
+    return [];
+  }
+  return summaries.flatMap((item) => {
+    if (!item || typeof item !== "object" || Array.isArray(item)) {
+      return [];
+    }
+    const candidate = item as { chapterOrder?: unknown; reason?: unknown };
+    if (typeof candidate.reason !== "string" || !candidate.reason.trim()) {
+      return [];
+    }
+    return [{
+      chapterOrder: typeof candidate.chapterOrder === "number" ? candidate.chapterOrder : null,
+      reason: candidate.reason.trim(),
+    }];
+  }).slice(-12);
 }
 
 function readProposalPayloadText(
@@ -344,7 +445,10 @@ export default function NovelTaskDrawer({
   const canShowRetryWithOverrideModel = capabilities?.canRetryWithOverrideModel === true;
   const canShowFollowUp = capabilities?.availableFollowUps !== false && Boolean(followUp);
   const promotedRecoveryAction = task?.checkpointType === "replan_required"
-    ? actions.find((action) => action.label.includes("从最近进度恢复")) ?? null
+    ? actions.find((action) => (
+      action.label.includes("让 AI 处理并继续")
+      || action.label.includes("从最近进度恢复")
+    )) ?? null
     : null;
   const promotedQualityRepairAction = task?.checkpointType === "replan_required"
     ? actions.find((action) => action.label.includes("打开质量修复")) ?? null
@@ -356,6 +460,11 @@ export default function NovelTaskDrawer({
     task?.checkpointType === "replan_required"
     && (action.code === "continue_auto_execution" || action.code === "go_replan")
   )) ?? [];
+  const qualityDisposition = readQualityDisposition(task);
+  const qualityDispositionPresentation = qualityDisposition
+    ? formatQualityDisposition(qualityDisposition)
+    : null;
+  const qualityDebtSummaries = readQualityDebtSummaries(task);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -377,6 +486,22 @@ export default function NovelTaskDrawer({
               showDetailsAction={false}
               onAction={(_projection, action) => handleProjectionAction(action)}
             />
+          ) : null}
+
+          {qualityDisposition && qualityDispositionPresentation ? (
+            <section className="rounded-2xl border border-primary/20 bg-primary/5 p-4">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold text-foreground">{qualityDispositionPresentation.title}</div>
+                  <div className="mt-1 text-sm leading-6 text-muted-foreground">
+                    {qualityDispositionPresentation.description}
+                  </div>
+                </div>
+                <Badge variant={qualityDisposition.action === "pause_for_manual" ? "destructive" : "secondary"}>
+                  {qualityDispositionPresentation.status}
+                </Badge>
+              </div>
+            </section>
           ) : null}
 
           {resourceProposals.length > 0 ? (
@@ -428,32 +553,10 @@ export default function NovelTaskDrawer({
                     <div className="text-xs text-muted-foreground">当前动作</div>
                     <div className="mt-1 text-sm font-medium text-foreground">{dashboardView?.currentAction ?? displayState?.currentAction ?? task.currentItemLabel ?? "暂无"}</div>
                   </div>
-                  <div className="rounded-xl border bg-background/80 p-3">
-                    <div className="text-xs text-muted-foreground">最近检查点</div>
-                    <div className="mt-1 text-sm font-medium text-foreground">{displayState?.checkpointLabel ?? formatCheckpoint(task.checkpointType, task.executionScopeLabel)}</div>
-                  </div>
-                  <div className="rounded-xl border bg-background/80 p-3">
-                    <div className="text-xs text-muted-foreground">最近心跳</div>
-                    <div className="mt-1 text-sm font-medium text-foreground">{formatDate(task.heartbeatAt)}</div>
-                  </div>
                 </div>
                 <div className="h-2 overflow-hidden rounded-full bg-muted">
                   <div className="h-full rounded-full bg-primary transition-all" style={{ width: `${progressPercent}%` }} />
                 </div>
-                {task.checkpointSummary ? (
-                  <div className="rounded-xl border bg-background/80 p-3 text-sm text-muted-foreground">
-                    {task.checkpointSummary}
-                  </div>
-                ) : null}
-                {task.lastError ? (
-                  <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-                    <div className="font-medium">最近错误</div>
-                    <div className="mt-1">{task.lastError}</div>
-                    {task.recoveryHint ? (
-                      <div className="mt-2 text-xs text-destructive/80">恢复建议：{task.recoveryHint}</div>
-                    ) : null}
-                  </div>
-                ) : null}
               </section>
 
               {canShowFollowUp && followUp ? (
@@ -465,13 +568,9 @@ export default function NovelTaskDrawer({
                       {formatFollowUpPriority(followUp.priority)}
                     </Badge>
                   </div>
-                  <div className="text-sm leading-6 text-muted-foreground">{followUp.followUpSummary}</div>
-                  {followUp.blockingReason ? (
-                    <div className="text-sm text-muted-foreground">阻止动作的原因：{followUp.blockingReason}</div>
-                  ) : null}
-                  {followUp.currentModel ? (
-                    <div className="text-sm text-muted-foreground">当前任务模型：{followUp.currentModel}</div>
-                  ) : null}
+                  <div className="text-sm leading-6 text-muted-foreground">
+                    {followUp.nextStepSuggestion ?? "请选择下方推荐动作继续。"}
+                  </div>
                   {runtimeHardBlocked && runtimeBlockedReason ? (
                     <div className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
                       {runtimeBlockedReason}
@@ -493,6 +592,73 @@ export default function NovelTaskDrawer({
                   </div>
                 </section>
               ) : null}
+
+              <details className="group rounded-2xl border border-border/70 bg-muted/10">
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-3 px-4 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">高级详情</div>
+                    <div className="mt-1 text-xs leading-5 text-muted-foreground">
+                      查看审校结论、质量债、检查点、模型重试、Token 和运行记录。
+                    </div>
+                  </div>
+                  <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform duration-200 group-open:rotate-180" aria-hidden="true" />
+                </summary>
+                <div className="space-y-5 border-t border-border/70 px-4 py-4">
+                  <section className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-xl border bg-background/80 p-3">
+                      <div className="text-xs text-muted-foreground">最近检查点</div>
+                      <div className="mt-1 text-sm font-medium text-foreground">{displayState?.checkpointLabel ?? formatCheckpoint(task.checkpointType, task.executionScopeLabel)}</div>
+                    </div>
+                    <div className="rounded-xl border bg-background/80 p-3">
+                      <div className="text-xs text-muted-foreground">最近心跳</div>
+                      <div className="mt-1 text-sm font-medium text-foreground">{formatDate(task.heartbeatAt)}</div>
+                    </div>
+                  </section>
+
+                  {qualityDisposition ? (
+                    <section className="rounded-xl border bg-background/80 p-3 text-sm text-muted-foreground">
+                      <div className="font-medium text-foreground">AI 判断依据</div>
+                      <div className="mt-1 leading-6">{qualityDisposition.reason}</div>
+                      {qualityDisposition.affectedChapterOrders.length > 0 ? (
+                        <div className="mt-2 text-xs">影响章节：{qualityDisposition.affectedChapterOrders.join("、")}</div>
+                      ) : null}
+                    </section>
+                  ) : null}
+
+                  {qualityDebtSummaries.length > 0 ? (
+                    <section className="space-y-2 rounded-xl border bg-background/80 p-3 text-sm text-muted-foreground">
+                      <div className="font-medium text-foreground">质量债</div>
+                      {qualityDebtSummaries.map((item, index) => (
+                        <div key={`${item.chapterOrder ?? "book"}:${index}`} className="leading-6">
+                          {item.chapterOrder ? `第 ${item.chapterOrder} 章：` : ""}{item.reason}
+                        </div>
+                      ))}
+                    </section>
+                  ) : null}
+
+                  {task.checkpointSummary ? (
+                    <section className="rounded-xl border bg-background/80 p-3 text-sm text-muted-foreground">
+                      {task.checkpointSummary}
+                    </section>
+                  ) : null}
+                  {task.lastError ? (
+                    <section className="rounded-xl border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                      <div className="font-medium">最近错误</div>
+                      <div className="mt-1">{task.lastError}</div>
+                      {task.recoveryHint ? (
+                        <div className="mt-2 text-xs text-destructive/80">恢复建议：{task.recoveryHint}</div>
+                      ) : null}
+                    </section>
+                  ) : null}
+
+                  {followUp ? (
+                    <section className="space-y-2 rounded-xl border bg-background/80 p-3 text-sm text-muted-foreground">
+                      <div className="font-medium text-foreground">跟进详情</div>
+                      <div className="leading-6">{followUp.followUpSummary}</div>
+                      {followUp.blockingReason ? <div>阻塞原因：{followUp.blockingReason}</div> : null}
+                      {followUp.currentModel ? <div>任务模型：{followUp.currentModel}</div> : null}
+                    </section>
+                  ) : null}
 
               {canShowRuntimePolicy && task ? (
                 <section className="space-y-3">
@@ -660,6 +826,8 @@ export default function NovelTaskDrawer({
                   </div>
                 )}
               </section>
+                </div>
+              </details>
             </>
           ) : (
             <section className="rounded-2xl border border-dashed px-5 py-8 text-sm text-muted-foreground">

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 
 const ACTION_LABELS: Record<DirectorIssueAction, string> = {
   auto_retry: "自动重试",
+  auto_replan: "AI 自动重规划",
   continue_with_warning: "记录提醒并继续",
   pause_for_manual: "暂停等待处理",
   fail_task: "结束当前任务",

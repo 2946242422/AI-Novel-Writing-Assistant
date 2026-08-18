@@ -408,7 +408,7 @@ export function validateAutoDirectorAction(input: AutoDirectorActionValidationIn
     blockingReasons.push("按路由模型重试需要站内确认，请打开跟进中心处理。");
   }
   if (CHANNEL_SOURCES.has(input.source) && isReplanRecovery) {
-    blockingReasons.push("跳过质量建议需要站内确认，请打开跟进中心处理。");
+    blockingReasons.push("AI 质量处置需要在站内发起，请打开跟进中心继续。");
   }
   if (input.actionCode === "continue_auto_execution" && input.task.status !== "waiting_approval" && !isReplanRecovery) {
     blockingReasons.push("当前任务不在等待继续状态，请先重新校验任务状态。");
@@ -431,7 +431,7 @@ export function validateAutoDirectorAction(input: AutoDirectorActionValidationIn
     warnings: input.actionCode === "retry_with_route_model"
       ? ["按路由模型重试会使用当前模型路由，结果可能与任务原模型不同。"]
       : isReplanRecovery
-        ? ["当前正文会保留，本次质量建议将记为质量债，自动导演从最近进度继续。"]
+        ? ["AI 会保留当前正文，自动选择轻修、记录建议或调整相邻章节后继续。"]
         : [],
     requiredActions: input.actionCode === "continue_auto_execution"
       ? [

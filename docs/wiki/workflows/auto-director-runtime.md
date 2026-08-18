@@ -32,7 +32,7 @@ Web API 只接收命令和返回轻量投影；Worker 负责执行重型生产�
 
 策略优先级固定为：不可突破的安全规则 > 本书覆盖 > 全局设置 > 内置默认。运行中的任务只读取 seed 中的有效策略快照，避免管理员修改阈值后改变已经开始的生产链。全局规则保存完整策略，本书只保存与全局不同的覆盖项。
 
-问题动作只有 `auto_retry`、`continue_with_warning`、`pause_for_manual`、`fail_task`。局部质量债、接收检查不可用、局部修复失败与后台预取失败，在全书自动成书且已有可用正文时只能重试或记录提醒后继续。明确重规划、异常用量、受保护内容与数据完整性风险必须暂停；没有可用正文或无法确认关键结果已保存时不能仅提醒后继续。模型、服务、路线窗口、执行合同、工作线程失联和一般运行失败优先使用既有重试预算，耗尽后再暂停。
+问题动作包括 `auto_retry`、`auto_replan`、`continue_with_warning`、`pause_for_manual`、`fail_task`。局部质量债、接收检查不可用、局部修复失败与后台预取失败，在全书自动成书且已有可用正文时只能重试或记录提醒后继续。明确的相邻章节目标失配使用 `auto_replan`；异常用量、受保护内容、数据完整性风险、无可用正文或同类自动处理耗尽才暂停。模型、服务、路线窗口、执行合同、工作线程失联和一般运行失败优先使用既有重试预算，耗尽后再暂停。
 
 前端从同一事件账本投影问题码、阶段、章节、风险分、实际动作与策略来源。章节问题跳转到章节编辑器，书级问题回到小说工作区或恢复入口。问题记录是质量债和恢复定位依据，不应把可继续的局部问题伪装成全书失败。
 
@@ -80,12 +80,12 @@ Web API 只接收命令和返回轻量投影；Worker 负责执行重型生产�
 - 自动导演驱动章节生产时，只能通过 `novelService.startPipelineJob(...)` 或 `resumePipelineJob(...)` 进入统一章节执行主链；导演侧不得直接调用 writer、patch repair、heavy repair 或旧手动修文 service。
 - 自动导演遇到章节质量失败时，只能复用统一质量修复规则：patch first，失败后最多一次 `heavy_repair`，再失败则登记质量债务或 recoverable failure 并继续后续章节。导演 runtime 不得再发明独立的“导演专用修文分支”。
 - 自动导演进入下一章前必须服从章节生产链的 `final_content -> timeline_finalization -> next_chapter` 规则。导演可以决定继续、跳过或重规划，但不能绕过 `ChapterTimelineFinalizationService`。
-- 自动导演的“跳过质量修复并继续”不是绕过时间线。达到修复预算上限或用户选择 `skip_quality_repair` 时，执行面必须先基于当前最佳正文提交 degraded timeline checkpoint，再登记质量债务并推进剩余章节。
+- 自动导演的“跳过质量修复并继续”不是绕过时间线。局部修复预算耗尽但当前正文仍可用，或用户显式选择 `skip_quality_repair` 时，执行面必须先基于当前最佳正文提交 degraded timeline checkpoint，再登记质量债并推进。若同一问题经轻修、重写或窗口重规划后仍连续失败，熔断器必须暂停而不是继续记债。
 - 自动导演不得在 director 内部补写时间线提交逻辑。stable/degraded timeline、`ChapterTimeAnchor`、hook 承接、checkpoint metadata 都属于统一章节 runtime，不属于导演专属恢复逻辑。
 - 自动导演驱动章节生产时，章节 pipeline 的 LLM 用量必须写入导演用量遥测，并带上 `chapterId`。每章累计 token 超过硬预算时，运行时应打开 `usage_anomaly` 熔断并暂停后续自动执行，防止任务重启、质量循环或上下文膨胀继续放大消耗。
 - 自动导演投影必须把 `terminalAction=defer_and_continue` 且非重规划的质量结果视为“已记录质量债务”，不能升级成 `action_required`、`error` 或“出错需处理”。这类质量债务只影响后续优化提示，不阻塞继续执行。
 - 自动导演执行面只能把明确的 `stop_for_replan` / `replan_required` 接入重规划检查点。章节审核返回 `local_patch_plan`、`continue_with_warning`、`patchable_obligation_gap` 或修复后仍有可记录义务缺口时，应登记为质量债务或局部修复建议并继续剩余章节，不能因为 `recommended=true` 就写入 `replanAlertDetails`。
-- `replan_required` 即使出现在全书自动成书或 AI 主驾自动执行中，也仍是阻塞检查点。运行时应停止在实际触发章节，并把摘要写成“已执行至第 N 章，后续需重规划”，不能把目标范围直接显示为已完成。
+- `replan_required` 表示相邻章节职责需要重新分配，不等同于必须让用户介入。全书自动成书使用 `DirectorQualityDisposition` 消费结构化 AI 风险结论：目标窗口失配时自动重规划相邻章节并继续；疑似误判时记录质量债继续。非全书模式仍可保留为确认检查点。
 - `auto_execute_range` 是用户对当前章节执行范围的显式继续授权。恢复链路即使先回到结构化大纲或执行合同同步，也必须把该授权传入后续 Pipeline 的 `approveAutoExecutionScope`，并在结构化同步后主动进入章节执行节点；不能只依赖自动审批偏好，否则命令会成功结束但章节执行节点仍停在审批门。
 - 用户确认新书方向后，自动导演先投影为“准备开篇”。项目建立后可提前选择简易创作进入书架，但正文必须等待开篇路线和执行合同可用；未提前选择时，准备完成后投影为“等待选择生产方式”。选择专业创作则进入完整工作台且不自动生成正文。用户从简易自动创作切换到专业工作台时必须在章节边界生效：当前章允许安全落库，后续自动章节停止，已有正文和人工内容保持不变。
 - 新书自动导演创建的恢复入口是独立页面 `/novels/auto-director?taskId=<workflowTaskId>`。`taskId` 是前端 URL 的主参数；旧的 `/novels/create?mode=director&workflowTaskId=<id>` 只作为兼容输入，进入后应规范化到新页面。任务中心、恢复入口、候选确认链接和服务端 `sourceRoute` 都应指向新页面，保证刷新、桌面重启或崩溃恢复后回到同一个候选/进度现场。
@@ -101,8 +101,8 @@ Web API 只接收命令和返回轻量投影；Worker 负责执行重型生产�
 - 接管任务的 `downstreamReset` 元数据只表达“从接管点开始，后续旧资产需要重新校验”，不能覆盖任务已经推进到更后阶段的事实进度。UI 合成步骤状态时，应以当前运行阶段为边界，只把当前阶段及其后的 reset steps 显示为待推进；早于当前阶段的步骤应按任务进度或真实资产显示已完成。
 - `chapter_batch_ready` 的质量提醒属于当前批次的继续门。用户点击“继续自动执行章节”后，`approveAutoExecutionScope` 应允许 AI 主驾跳过当前质量提醒并启动剩余章节。
 - 章节范围自动执行的 StepModule 事实门控必须按本次授权范围裁剪章节进度。`chapter.draft.write`、`chapter.state.commit` 等范围内步骤只能校验当前 `autoExecution` / `autoExecutionPlan` 的章节区间，不能让范围外已有正文但缺状态提交的旧章节阻塞当前批次完成。
-- 章节质量审校、章节修复和章节状态提交必须使用同一份章节范围事实。局部质量问题已经被质量闭环标记为 `terminalAction=defer_and_continue` 时，它是章节级质量债，不应再因为 `blockingObligations` 或缺少独立 `StoryStateSnapshot` 把全局自动导演卡在 `chapter.state.commit`；只有 `replan_required` / `recommendedAction=replan` 这类明确重规划信号才能阻断后续章节范围。
-- `replan_required` 不是普通审核门。前端展示模式必须优先相信任务 checkpoint，而不能被 projection 的 `waiting_approval` 覆盖成普通“继续自动导演”；否则会发出 `resume` 命令，后端重读同一个重规划结果后原样写回，表现为命令成功但没有新的章节执行。
+- 章节质量审校、章节修复和章节状态提交必须使用同一份章节范围事实。局部质量问题已经被质量闭环标记为 `terminalAction=defer_and_continue` 时，它是章节级质量债，不应再因为 `blockingObligations` 或缺少独立 `StoryStateSnapshot` 把全局自动导演卡在 `chapter.state.commit`。`replan_required` / `recommendedAction=replan` 必须进入自动处置器，不得直接等同于用户阻断。
+- `replan_required` 不是普通审核门。前端展示必须优先读取 `latestQualityDisposition`：自动轻修、记债或重规划时只表达“AI 正在处理并继续”；只有 `pause_for_manual` 才展示用户处理入口。
 - `skip_quality_repair` 是用户显式选择“先跳过本次质量 / 重规划建议并继续”的控制命令。执行面必须把实际触发质量问题且已经生成正文的章节登记到 `qualityDebtSummaries`，再继续剩余章节范围；不能把风险当成已修复，也不能丢弃后续质量回收所需的章节、原因和时间信息。
 - 质量债来源必须来自明确的 pipeline job 章节范围或已持久化章节事实，不能从 `nextChapterId` / `nextChapterOrder` 推断。`nextChapter*` 只表示下一章待执行游标，不表示当前质量问题来源；空正文、仅有执行合同或仅有任务单的章节不得进入 `skippedChapterIds`、`skippedChapterOrders`、`qualityDebtChapterIds` 或 `qualityDebtChapterOrders`。
 - 自动导演 projection 必须优先相信任务 checkpoint。任务已经处于 `waiting_approval` 且存在 checkpoint 时，应屏蔽陈旧的 `DirectorStepRun.running`，否则 UI 会把等待处理的质量门显示成仍在执行。
@@ -184,7 +184,7 @@ Web API 只接收命令和返回轻量投影；Worker 负责执行重型生产�
 
 ## 正文优先与自动恢复
 
-自动导演的默认优先级是完成正文。章节已经产生可保存正文时，局部审校风险、自然度提示、回报尚未到兑现窗口和普通质量债都必须降级为章节级记录，不能单独把全局任务切到 `replan_required`。只有结构化状态明确要求重规划、正文不可用，或运行时/数据安全失败，才允许暂停批量执行。
+自动导演的默认优先级是完成正文。章节已经产生可保存正文时，局部审校风险、自然度提示、回报尚未到兑现窗口和普通质量债都必须降级为章节级记录。结构化状态明确要求重规划时，AI 先重规划相邻章节并继续；只有没有可用正文、严重事实冲突、可能覆盖受保护正文、运行/数据安全失败或同类自动处理连续失败，才暂停询问用户。
 
 章节运行时异常由当前章节负责自动重试；自动导演默认最多重试两轮，重试期间任务标签应说明“正在自动修复并重试”。重试不能重写已稳定保存的前文，也不能创建第二条生产链。达到重试上限且仍没有可用正文时，才创建可恢复检查点，并保留章节、阶段和最近游标，避免把内部堆栈直接当成用户操作要求。
 
@@ -201,8 +201,8 @@ Web API 只接收命令和返回轻量投影；Worker 负责执行重型生产�
 - 每个需要决策的异常使用 `DirectorRiskAssessment` 记录 1–8 分、类别、影响范围、证据、建议、是否可暂停和实际动作。8 分是对用户可见和持久化的最高风险分，保护性暂停必须通过实际动作表达，不能再以 9 或 10 分放大风险。已自动重试并恢复的瞬时问题只留运行日志。
 - 风险策略为任务快照：全局默认在 5 分提醒、8 分保护性暂停。提醒分数可在 2–7 分之间调整，保护性暂停可在 3–8 分之间调整，但必须高于提醒分数；风险分数本身无论何种策略都不能超过 8 分。小说可覆盖两项阈值。新建、接管或历史任务首次继续时写入任务 Seed 与执行状态，运行中修改设置不回溯改变该任务。
 - 到达提醒阈值时写入自动导演账本、运行时投影与通知渠道。外部通知按 `任务 + 问题指纹 + 阈值区间 + 动作` 去重，避免同一问题在重试时反复打扰用户。
-- 全局和本书规则界面允许每个稳定问题码选择四种动作，并在用户产生未保存修改后显示风险提示。策略可保存用户偏好，但 `generation.output_unusable`、`quality.replan_required`、`runtime.token_budget_exceeded`、`runtime.protected_content`、`runtime.data_integrity` 与 `runtime.persistence_failed` 必须由目录中的 `enforcedAction` 执行安全兜底；此时实际决策的 `policySource` 为 `safety`，不能把偏好伪装成已自动放行。
-- 只有全局可阻断问题达到任务快照中的保护性暂停阈值，才会在当前章节持久化完成后的检查点进入可恢复暂停。`replan_required`、`stop_for_replan`、无可用正文、运行时安全、数据完整性和受保护正文冲突为强制暂停；其风险分固定记为 8 分，暂停原因由 `action=forced_pause` 表达，且不依赖评分模型调用成功。
+- 全局和本书规则界面允许每个稳定问题码选择自动重试、AI 自动重规划、记录提醒后继续、暂停和结束等动作。`quality.replan_required` 默认使用 `auto_replan`；`generation.output_unusable`、`runtime.token_budget_exceeded`、`runtime.protected_content`、`runtime.data_integrity` 与 `runtime.persistence_failed` 仍由 `enforcedAction` 执行安全兜底。
+- 只有全局可阻断问题达到任务快照中的保护性暂停阈值，才会在当前章节持久化完成后的检查点进入可恢复暂停。无可用正文、严重事实冲突、运行时安全、数据完整性、受保护正文冲突和同类自动处理连续失败会暂停；普通 `replan_required` 先自动重规划。
 - `local_patch_plan`、`continue_with_warning`、`defer_and_continue`、局部修复残留和普通质量债无论分数多高，都只能记录质量债或局部修复提醒；它们的 `canPause` 必须为 false，不能把全书任务路由到 `replan_required`。
 
 ### Related Modules

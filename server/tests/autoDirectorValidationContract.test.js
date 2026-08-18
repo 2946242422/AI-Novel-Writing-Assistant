@@ -471,7 +471,7 @@ test("validateAutoDirectorAction marks safe follow-up continue with required che
   assert.equal(result.nextAction, "continue_auto_execution");
 });
 
-test("validateAutoDirectorAction allows failed replan checkpoints to continue as recorded quality debt", () => {
+test("validateAutoDirectorAction allows failed replan checkpoints to return to AI disposition", () => {
   const result = validateAutoDirectorAction({
     source: "web",
     actionCode: "continue_auto_execution",
@@ -493,10 +493,10 @@ test("validateAutoDirectorAction allows failed replan checkpoints to continue as
 
   assert.equal(result.allowed, true);
   assert.equal(result.nextAction, "continue_auto_execution");
-  assert.match(result.warnings.join("\n"), /质量债|最近进度/);
+  assert.match(result.warnings.join("\n"), /轻修|相邻章节/);
 });
 
-test("validateAutoDirectorAction requires in-app confirmation before skipping a replan checkpoint", () => {
+test("validateAutoDirectorAction keeps AI quality disposition inside the app", () => {
   const result = validateAutoDirectorAction({
     source: "wecom",
     actionCode: "continue_auto_execution",
@@ -512,7 +512,7 @@ test("validateAutoDirectorAction requires in-app confirmation before skipping a 
   });
 
   assert.equal(result.allowed, false);
-  assert.match(result.blockingReasons.join("\n"), /站内确认/);
+  assert.match(result.blockingReasons.join("\n"), /站内发起/);
   assert.equal(result.nextAction, "open_follow_up_center");
 });
 
