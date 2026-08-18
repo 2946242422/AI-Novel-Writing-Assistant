@@ -173,7 +173,7 @@ export default function LiveExecutionDialog(props: LiveExecutionDialogProps) {
         <Radio className={activeCount > 0 ? "mr-1.5 h-3.5 w-3.5 animate-pulse text-primary" : "mr-1.5 h-3.5 w-3.5"} aria-hidden="true" />
         {!props.compact ? <span className="hidden sm:inline">AI 实况</span> : null}
         {activeCount > 0 ? (
-          <Badge className="ml-1.5 h-5 min-w-5 px-1.5 text-[10px]" aria-label={`${activeCount} 项 AI 生成正在进行`}>
+          <Badge className="ml-1.5 h-5 min-w-5 px-1.5 text-[10px]" aria-label={`${activeCount} 项 AI 创作正在进行`}>
             {activeCount}
           </Badge>
         ) : null}
@@ -228,7 +228,7 @@ export default function LiveExecutionDialog(props: LiveExecutionDialogProps) {
                   id="live-execution-description"
                   className={cn("mt-1 text-xs leading-5 text-emerald-100/65", briefMode && "sr-only")}
                 >
-                  每次调用独立显示。新调用会自动聚焦，已完成调用会收起；清空只影响当前窗口。
+                  自动导演阶段和模型调用分别显示。新活动会自动聚焦，完成或失败后保留记录；清空只影响当前窗口。
                 </DialogPrimitive.Description>
               </div>
               <Badge variant="outline" className="shrink-0 border-emerald-400/50 bg-emerald-400/10 font-mono text-emerald-200">
@@ -343,7 +343,7 @@ export default function LiveExecutionDialog(props: LiveExecutionDialogProps) {
                 </div>
               ) : (
                 <div className="text-emerald-200/65">
-                  {connected ? "前台日志已清空，等待新的 AI 生成开始…" : "正在连接 AI 实况服务…"}
+                  {connected ? "前台日志已清空，等待新的自动导演阶段或模型调用…" : "正在连接 AI 实况服务…"}
                 </div>
               )}
             </div>

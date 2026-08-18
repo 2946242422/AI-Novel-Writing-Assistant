@@ -18,7 +18,7 @@ export interface LlmLiveContext {
   promptId?: string | null;
   promptVersion?: string | null;
   label: string;
-  mode: "text" | "structured";
+  mode: "text" | "structured" | "runtime";
   taskId?: string | null;
   novelId?: string | null;
   chapterId?: string | null;

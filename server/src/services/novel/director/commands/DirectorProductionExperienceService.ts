@@ -12,6 +12,7 @@ import {
   type DirectorWorkflowSeedPayload,
 } from "../runtime/novelDirectorHelpers";
 import { DirectorCommandService } from "./DirectorCommandService";
+import { DirectorUnattendedPreflightService } from "../automation/unattended/DirectorUnattendedPreflightService";
 
 export function parseSelectedExperience(seed: DirectorWorkflowSeedPayload): NovelProductionExperience | null {
   return seed.productionExperience === "simple" || seed.productionExperience === "professional"
@@ -50,7 +51,10 @@ export function buildProductionExperienceSeed(
 }
 
 export class DirectorProductionExperienceService {
-  constructor(private readonly commandService = new DirectorCommandService()) {}
+  constructor(
+    private readonly commandService = new DirectorCommandService(),
+    private readonly unattendedPreflightService = new DirectorUnattendedPreflightService(),
+  ) {}
 
   async select(
     taskId: string,
@@ -66,6 +70,16 @@ export class DirectorProductionExperienceService {
 
     const seed = parseSeedPayload<DirectorWorkflowSeedPayload>(task.seedPayloadJson) ?? {};
     const selected = parseSelectedExperience(seed);
+    if (experience === "simple" && selected !== "simple") {
+      const preflight = await this.unattendedPreflightService.inspect(taskId);
+      if (!preflight.ready) {
+        const blockers = preflight.checks
+          .filter((item) => item.level === "blocker")
+          .map((item) => item.message)
+          .join("；");
+        throw new AppError(blockers || "无人值守创作启动前检查未通过。", 409);
+      }
+    }
     if (selected === "simple" && experience === "professional") {
       const activeJob = await prisma.generationJob.findFirst({
         where: {

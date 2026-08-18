@@ -134,12 +134,17 @@ export class ChapterStreamGenerationOrchestrator {
     novelId: string,
     chapterId: string,
     options: ChapterRuntimeRequestInput = {},
+    config: { allowExistingDraftRecovery?: boolean } = {},
   ): Promise<PreparedRuntimeChapter> {
     const request = this.deps.validateRequest(options);
     await this.deps.ensureNovelCharacters(novelId, "generate chapter content");
     const assembled = await this.deps.assembler.assemble(novelId, chapterId, request);
-    this.deps.readinessService.assertReady(assembled.contextPackage);
-    this.assertStateDrivenReady(assembled.contextPackage, request);
+    const recoveringExistingDraft = config.allowExistingDraftRecovery
+      && Boolean(assembled.chapter.content?.trim());
+    if (!recoveringExistingDraft) {
+      this.deps.readinessService.assertReady(assembled.contextPackage);
+      this.assertStateDrivenReady(assembled.contextPackage, request);
+    }
     return {
       request,
       assembled: assembled as AssembledRuntimeChapter,

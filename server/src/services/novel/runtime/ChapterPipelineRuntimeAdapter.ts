@@ -36,8 +36,15 @@ export class ChapterPipelineRuntimeAdapter {
     options: PipelineRuntimeInput = {},
     hooks: PipelineRuntimeHooks = {},
   ): Promise<PipelineRuntimeResult> {
-    const { request, assembled } = await this.deps.streamOrchestrator.prepareRuntimeChapter(novelId, chapterId, options);
-    await this.deps.streamOrchestrator.markChapterStatus(chapterId, "generating");
+    const { request, assembled } = await this.deps.streamOrchestrator.prepareRuntimeChapter(
+      novelId,
+      chapterId,
+      options,
+      { allowExistingDraftRecovery: true },
+    );
+    if (!assembled.chapter.content?.trim()) {
+      await this.deps.streamOrchestrator.markChapterStatus(chapterId, "generating");
+    }
     try {
       return await runPipelineChapterWithRuntime(
         {

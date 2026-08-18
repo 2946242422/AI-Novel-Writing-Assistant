@@ -196,6 +196,7 @@ export class NovelDirectorAutoExecutionRuntime {
               provider: input.request.provider,
               model: input.request.model,
               temperature: input.request.temperature,
+              maxTokens: autoExecution.unattendedPolicy?.maxOutputTokens,
               workflowTaskId: input.taskId,
               taskStyleProfileId: input.request.styleProfileId,
               controlAdvanceMode: isFullBookAutopilotRunMode(input.request.runMode)
@@ -205,6 +206,7 @@ export class NovelDirectorAutoExecutionRuntime {
               autoReview: autoExecution.autoReview,
               autoRepair: autoExecution.autoRepair,
               artifactSyncMode: autoExecution.artifactSyncMode,
+              unattendedPolicy: autoExecution.unattendedPolicy,
               repairMode: resolveDirectorAutoExecutionRepairMode(autoExecution),
             }),
           );

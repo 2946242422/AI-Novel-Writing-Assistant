@@ -1,4 +1,5 @@
 import type { BookAnalysisSectionKey } from "@ai-novel/shared/types/bookAnalysis";
+import type { DirectorUnattendedPolicy } from "@ai-novel/shared/types/novelDirector";
 import type { LLMProvider } from "@ai-novel/shared/types/llm";
 import type { QualityScore, ReviewIssue } from "@ai-novel/shared/types/novel";
 import { parseCommercialTagsJson } from "@ai-novel/shared/types/novelFraming";
@@ -191,6 +192,7 @@ export interface PipelineRunOptions extends LLMGenerateOptions {
   qualityThreshold?: number;
   repairMode?: "detect_only" | "light_repair" | "heavy_repair" | "continuity_only" | "character_only" | "ending_only";
   artifactSyncMode?: ArtifactSyncMode;
+  unattendedPolicy?: DirectorUnattendedPolicy;
 }
 
 export type PipelineBackgroundSyncKind = "artifact_delta" | "character_dynamics" | "state_snapshot" | "payoff_ledger" | "character_resources" | "canonical_state";
@@ -224,6 +226,7 @@ export interface PipelinePayload extends LLMGenerateOptions {
   qualityThreshold?: number;
   repairMode?: "detect_only" | "light_repair" | "heavy_repair" | "continuity_only" | "character_only" | "ending_only";
   artifactSyncMode?: ArtifactSyncMode;
+  unattendedPolicy?: DirectorUnattendedPolicy;
   qualityAlertDetails?: string[];
   replanAlertDetails?: string[];
   recoverableRepairDetails?: string[];

@@ -50,6 +50,8 @@ export interface DirectorTakeoverAssetSnapshot {
   generatedChapterCount?: number;
   approvedChapterCount?: number;
   pendingRepairChapterCount?: number;
+  hasRecoverableDraftInRange?: boolean;
+  recoverableDraftChapterOrder?: number | null;
   /**
    * 目标自动执行范围内是否仍有「未处理且缺少完整章节细化」的章节。
    * 为真时，继续模式应先回到节奏 / 拆章补齐细化，而非直接进入章节执行

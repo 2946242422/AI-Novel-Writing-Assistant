@@ -18,6 +18,7 @@ export const chapterRuntimeRequestSchema = z.object({
   provider: llmProviderSchema.optional(),
   model: z.string().trim().optional(),
   temperature: z.number().min(0).max(2).optional(),
+  maxTokens: z.number().int().min(512).max(32_768).optional(),
   previousChaptersSummary: z.array(z.string()).optional(),
   taskStyleProfileId: z.string().trim().optional(),
   artifactSyncMode: z.enum(["adaptive", "deferred", "strict"]).optional(),

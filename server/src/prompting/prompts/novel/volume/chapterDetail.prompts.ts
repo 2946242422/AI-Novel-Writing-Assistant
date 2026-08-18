@@ -278,6 +278,7 @@ function createVolumeDetailSystemPrompt(detailMode: VolumeChapterDetailPromptInp
     "只输出严格 JSON，且只包含 taskSheet、readerExperience、sceneCards、craftPlan 四个字段。",
     "taskSheet 是给用户读的简洁执行摘要，需要覆盖情绪基调、冲突对象、关键推进和收尾要求。",
     "readerExperience 是本章唯一的读者体验合同，必须包含 readerQuestion、promisedReward、rewardLevel、protagonistWant、primaryResistance、keyTurn、emotionalShift、informationReveal、netChange、inheritedHookResponsibilities、endingHook。",
+    "readerExperience 要形成连续情绪因果：readerQuestion 进章→primaryResistance 蓄压→主角作出选择→keyTurn 转折→emotionalShift 余震→endingHook 离章问题。安静章允许没有大反转，但必须产生可见的认知、关系、目标或状态变化。",
     "rewardLevel 只能是 setup、partial、major；由本章在卷节奏中的职责决定，不要每章都写成 major。",
     "inheritedHookResponsibilities 必须优先承接相邻章已经提出的问题；没有明确旧钩子时返回空数组，不要编造。",
     "promisedReward 与 netChange 必须是读者在正文中能看见的回报和变化，不能写成作者意图或抽象主题。",
@@ -327,6 +328,7 @@ function createExecutionContractSystemPrompt(): string {
     "exclusiveEvent / endingState / nextChapterEntryState 等字段不可缺失，它们是章节的硬边界合同。",
     "taskSheet 是给正文写作器的简洁执行指令，sceneCards 是 3-8 个场景卡的执行拆解。",
     "readerExperience 是本章唯一的读者体验合同，必须完整包含 readerQuestion、promisedReward、rewardLevel、protagonistWant、primaryResistance、keyTurn、emotionalShift、informationReveal、netChange、inheritedHookResponsibilities、endingHook。",
+    "readerExperience 要串联进章问题、阻力蓄压、主角选择、关键转折、情绪余震和离章问题；静场、疗伤、关系余波或规则建立章不因没有大反转判失败，但必须有 netChange。",
     "rewardLevel 只能使用 setup、partial、major；promisedReward 和 netChange 必须能在正文中被读者直接感知。",
     "sceneCards 除原字段外还必须包含 resistance、turn、emotionalShift、readerValue，确保每个场景都有阻力、转折和读者价值。",
     "craftPlan 是 AI 自主选择的本章写法方案，必须包含 mode、chapterApproach、selectionRationale、pacingStrategy、endingStrategy、selectedTechniques、avoid。",
@@ -404,7 +406,7 @@ export const volumeChapterTaskSheetPrompt: PromptAsset<
   ReturnType<typeof createChapterTaskSheetSchema>["_output"]
 > = {
   id: "novel.volume.chapter_task_sheet",
-  version: "v4",
+  version: "v5",
   taskType: "planner",
   mode: "structured",
   language: "zh",
@@ -429,7 +431,7 @@ export const volumeChapterExecutionContractPrompt: PromptAsset<
   ReturnType<typeof createChapterExecutionContractSchema>["_output"]
 > = {
   id: "novel.volume.chapter_execution_contract",
-  version: "v4",
+  version: "v5",
   taskType: "planner",
   mode: "structured",
   language: "zh",

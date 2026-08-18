@@ -123,6 +123,7 @@ export function resolveAssetFirstRecoveryFromSnapshot(input: {
   hasActivePipelineJob: boolean;
   hasExecutableRange: boolean;
   hasAutoExecutionState: boolean;
+  hasRecoverableDraftInRange?: boolean;
   hasMissingExecutionContractInRange?: boolean;
   latestCheckpointType?: "chapter_batch_ready" | "replan_required" | null;
 }):
@@ -142,11 +143,22 @@ export function resolveAssetFirstRecoveryFromSnapshot(input: {
     isDirectorAutoExecutionRunMode(normalizeDirectorRunMode(input.runMode))
     && input.hasVolumeStrategyPlan
     && input.hasMissingExecutionContractInRange
+    && !input.hasRecoverableDraftInRange
     && !input.hasActivePipelineJob
   ) {
     return {
       type: "phase",
       phase: "structured_outline",
+    };
+  }
+
+  if (
+    isDirectorAutoExecutionRunMode(normalizeDirectorRunMode(input.runMode))
+    && input.hasRecoverableDraftInRange
+  ) {
+    return {
+      type: "auto_execution",
+      resumeCheckpointType: "replan_required",
     };
   }
 

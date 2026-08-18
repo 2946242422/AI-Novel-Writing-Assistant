@@ -299,6 +299,28 @@ test("task sheet post-validate rejects adjacent chapter event leakage", () => {
   };
   const leakedOutput = {
     taskSheet: "本章要在高压劳作后直接写到系统激活，正式亮出金手指。",
+    readerExperience: {
+      readerQuestion: "主角如何熬过杂役压迫？",
+      promisedReward: "看见主角找到第一个破局空间。",
+      rewardLevel: "setup",
+      protagonistWant: "保住自己并找到翻身机会。",
+      primaryResistance: "杂役身份和上层压迫。",
+      keyTurn: "主角改变被动忍受的方式。",
+      emotionalShift: "从绝望转为警觉。",
+      informationReveal: "府内资源流转有可利用空隙。",
+      netChange: "主角拿到下一步行动入口。",
+      inheritedHookResponsibilities: [],
+      endingHook: "主角决定追踪资源去向。",
+    },
+    craftPlan: {
+      mode: "none",
+      chapterApproach: "服从当前章节边界。",
+      selectionRationale: "本章不需要额外技法。",
+      pacingStrategy: "按阻力与选择推进。",
+      endingStrategy: "停在下一章入口前。",
+      selectedTechniques: [],
+      avoid: ["不要提前写系统激活。"],
+    },
     sceneCards: [
       {
         key: "scene_1",

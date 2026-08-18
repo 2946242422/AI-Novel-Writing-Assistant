@@ -10,6 +10,7 @@ import {
   type ChapterEmptyContentError,
 } from "./chapterEmptyContentError";
 import { runChapterRepairText } from "./repair/chapterRepairRuntime";
+import { detectLocalReadabilityAdvisories } from "../quality/readability/LocalReadabilityAdvisory";
 
 export interface PipelineRuntimeHooks {
   onCheckCancelled?: () => Promise<void>;
@@ -246,10 +247,12 @@ export async function runPipelineChapterWithRuntime(
       startMs: null,
     });
     const styleLeakageIssues = detectStyleReferenceLeakageIssues(content, latestResult.runtimePackage);
+    const readabilityAdvisories = detectLocalReadabilityAdvisories(content);
     latestIssues = [
       ...toReviewIssues(latestResult.runtimePackage),
       ...toAcceptanceDirectiveIssues(latestResult.runtimePackage),
       ...styleLeakageIssues,
+      ...readabilityAdvisories,
     ];
     content = latestResult.finalContent;
     await deps.markChapterGenerationState(chapterId, "reviewed");

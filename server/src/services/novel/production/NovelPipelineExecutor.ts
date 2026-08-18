@@ -32,6 +32,12 @@ import {
   stringifyPipelinePayload as stringifyPipelineJobPayload,
   type PipelineActiveStage,
 } from "../pipelineJobState";
+import { normalizeDirectorUnattendedPolicy } from "@ai-novel/shared/types/novelDirector";
+import {
+  evaluateUnattendedProductionBudget,
+  isTransientProductionError,
+  UnattendedProductionBudgetExceededError,
+} from "./unattended/UnattendedProductionBudget";
 
 const PIPELINE_HEARTBEAT_INTERVAL_MS = 15000;
 const TERMINAL_CONTINUE_QUALITY_LOOP_RISK_FLAG_FRAGMENT = '"terminalAction":"defer_and_continue"';
@@ -226,6 +232,7 @@ export class NovelPipelineExecutor {
         completedCount: true,
         totalCount: true,
         retryCount: true,
+        llmCallCount: true,
         payload: true,
       },
     });
@@ -234,6 +241,7 @@ export class NovelPipelineExecutor {
       provider: persistedPayload.provider ?? options.provider ?? "deepseek",
       model: persistedPayload.model ?? options.model ?? "",
       temperature: persistedPayload.temperature ?? options.temperature ?? 0.8,
+      maxTokens: persistedPayload.maxTokens ?? options.maxTokens,
       controlPolicy: persistedPayload.controlPolicy ?? options.controlPolicy,
       workflowTaskId: persistedPayload.workflowTaskId ?? options.workflowTaskId,
       taskStyleProfileId: persistedPayload.taskStyleProfileId ?? options.taskStyleProfileId,
@@ -245,6 +253,7 @@ export class NovelPipelineExecutor {
       qualityThreshold: persistedPayload.qualityThreshold ?? options.qualityThreshold,
       repairMode: persistedPayload.repairMode ?? options.repairMode ?? "light_repair",
       artifactSyncMode: persistedPayload.artifactSyncMode ?? options.artifactSyncMode ?? "adaptive",
+      unattendedPolicy: persistedPayload.unattendedPolicy ?? options.unattendedPolicy,
     };
     const directorTelemetryTask = runtimePayload.workflowTaskId
       ? await prisma.novelWorkflowTask.findUnique({
@@ -265,6 +274,11 @@ export class NovelPipelineExecutor {
     const qualityAlertDetails = [...(persistedPayload.qualityAlertDetails ?? [])];
     const replanAlertDetails = [...(persistedPayload.replanAlertDetails ?? [])];
     const recoverableRepairDetails = [...(persistedPayload.recoverableRepairDetails ?? [])];
+    const unattendedPolicy = runtimePayload.unattendedPolicy
+      ? normalizeDirectorUnattendedPolicy(runtimePayload.unattendedPolicy)
+      : null;
+    const batchStartedAt = new Date();
+    const initialBatchCallCount = Math.max(0, existingJob?.llmCallCount ?? 0);
 
     try {
       await runWithLlmUsageTracking({
@@ -318,6 +332,12 @@ export class NovelPipelineExecutor {
         const autopilotTargetEndOrder = isAutopilotMode
           ? Math.max(options.endOrder, novel.estimatedChapterCount ?? options.endOrder)
           : options.endOrder;
+        const unattendedBatchEndOrder = unattendedPolicy
+          ? Math.min(
+            autopilotTargetEndOrder,
+            options.startOrder + unattendedPolicy.maxChaptersPerBatch - 1,
+          )
+          : autopilotTargetEndOrder;
         let totalCount = isAutopilotMode
           ? Math.max(1, autopilotTargetEndOrder - options.startOrder + 1)
           : Math.max(existingJob?.totalCount ?? 0, chapters.length, 1);
@@ -352,6 +372,10 @@ export class NovelPipelineExecutor {
         for (let chapterIndex = 0; chapterIndex < chaptersToProcess.length; chapterIndex++) {
           const chapter = chaptersToProcess[chapterIndex];
           await this.ensurePipelineNotCancelled(jobId);
+          const chapterStartUsage = unattendedPolicy
+            ? await prisma.generationJob.findUnique({ where: { id: jobId }, select: { llmCallCount: true } })
+            : null;
+          const chapterStartCallCount = Math.max(0, chapterStartUsage?.llmCallCount ?? initialBatchCallCount);
 
           let final = { score: normalizeScore({}), issues: [] as ReviewIssue[] };
           let shouldStopAfterCurrentChapter = false;
@@ -401,7 +425,9 @@ export class NovelPipelineExecutor {
           heartbeatTimer.unref?.();
 
           let chapterResult: Awaited<ReturnType<ChapterRuntimeCoordinator["runPipelineChapter"]>> | null = null;
-          const chapterExecutionRetryLimit = isAutopilotMode ? 2 : 0;
+          const chapterExecutionRetryLimit = isAutopilotMode
+            ? (unattendedPolicy?.maxStageRetries ?? 1)
+            : 0;
           try {
             for (let executionAttempt = 0; executionAttempt <= chapterExecutionRetryLimit; executionAttempt += 1) {
               try {
@@ -412,6 +438,7 @@ export class NovelPipelineExecutor {
                   provider: runtimePayload.provider,
                   model: runtimePayload.model,
                   temperature: runtimePayload.temperature,
+                  maxTokens: runtimePayload.maxTokens,
                   workflowTaskId: runtimePayload.workflowTaskId,
                   taskStyleProfileId: runtimePayload.taskStyleProfileId,
                   controlPolicy: runtimePayload.controlPolicy,
@@ -478,7 +505,8 @@ export class NovelPipelineExecutor {
                 if (error instanceof Error && error.message === "PIPELINE_CANCELLED") {
                   throw error;
                 }
-                const canRetry = executionAttempt < chapterExecutionRetryLimit;
+                const canRetry = executionAttempt < chapterExecutionRetryLimit
+                  && isTransientProductionError(error);
                 if (!canRetry) {
                   throw error;
                 }
@@ -650,6 +678,55 @@ export class NovelPipelineExecutor {
               order: chapter.order,
             });
           }
+          if (
+            unattendedPolicy
+            && chapter.order >= unattendedBatchEndOrder
+            && chapter.order < autopilotTargetEndOrder
+          ) {
+            shouldStopAfterCurrentChapter = true;
+            logPipelineInfo("无人值守批次已达章节上限，将从下一章继续", {
+              jobId,
+              chapterOrder: chapter.order,
+              maxChaptersPerBatch: unattendedPolicy.maxChaptersPerBatch,
+            });
+          }
+
+          let unattendedBudgetError: UnattendedProductionBudgetExceededError | null = null;
+          if (unattendedPolicy) {
+            const latestUsage = await prisma.generationJob.findUnique({
+              where: { id: jobId },
+              select: { llmCallCount: true },
+            });
+            const totalCalls = Math.max(0, latestUsage?.llmCallCount ?? chapterStartCallCount);
+            const decision = evaluateUnattendedProductionBudget({
+              policy: unattendedPolicy,
+              chapterOrder: chapter.order,
+              snapshot: {
+                batchCallCount: Math.max(0, totalCalls - initialBatchCallCount),
+                chapterCallCount: Math.max(0, totalCalls - chapterStartCallCount),
+                elapsedMinutes: Math.max(0, (Date.now() - batchStartedAt.getTime()) / 60_000),
+              },
+            });
+            if (decision.exceeded && decision.message) {
+              shouldStopAfterCurrentChapter = true;
+              unattendedBudgetError = new UnattendedProductionBudgetExceededError(decision.message, decision);
+              await reportPipelineIssue({
+                governance: issueGovernance,
+                workflowTaskId: runtimePayload.workflowTaskId,
+                novelId,
+                jobId,
+                issueCode: "runtime.token_budget_exceeded",
+                stage: "unattended_budget",
+                summary: decision.message,
+                chapterId: chapter.id,
+                chapterOrder: chapter.order,
+                hasUsableOutput: true,
+                provider: runtimePayload.provider,
+                model: runtimePayload.model,
+                temperature: runtimePayload.temperature,
+              });
+            }
+          }
 
           // Phase 3：N+1 章 JIT 预取
           // 当前章 finalize 完成后（factLedger 已写入），后台触发下一章的 task sheet 生成。
@@ -758,6 +835,9 @@ export class NovelPipelineExecutor {
               order: chapter.order,
               remaining: Math.max(0, totalCount - completed),
             });
+            if (unattendedBudgetError) {
+              throw unattendedBudgetError;
+            }
             break;
           }
         }
@@ -837,7 +917,7 @@ export class NovelPipelineExecutor {
           contentLength: error.details.trimmedLength,
           rawContentLength: error.details.rawLength,
         });
-      } else {
+      } else if (!(error instanceof UnattendedProductionBudgetExceededError)) {
         await reportPipelineIssue({
           governance: issueGovernance,
           workflowTaskId: runtimePayload.workflowTaskId,

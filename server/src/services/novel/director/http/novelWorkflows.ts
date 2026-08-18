@@ -7,12 +7,14 @@ import { DirectorCommandService } from "../commands/DirectorCommandService";
 import { DirectorProductionExperienceService } from "../commands/DirectorProductionExperienceService";
 import { NovelWorkflowService } from "../../workflow/NovelWorkflowService";
 import { NovelWorkflowTaskAdapter } from "../../../task/adapters/NovelWorkflowTaskAdapter";
+import { DirectorUnattendedPreflightService } from "../automation/unattended/DirectorUnattendedPreflightService";
 
 const router = Router();
 const workflowService = new NovelWorkflowService();
 const workflowAdapter = new NovelWorkflowTaskAdapter();
 const directorCommandService = new DirectorCommandService(workflowService);
 const productionExperienceService = new DirectorProductionExperienceService(directorCommandService);
+const unattendedPreflightService = new DirectorUnattendedPreflightService();
 
 const stageSchema = z.enum([
   "project_setup",
@@ -132,6 +134,20 @@ router.post("/:id/continue", validate({ params: continueParamsSchema, body: cont
   }
 });
 
+router.get("/:id/unattended-preflight", validate({ params: continueParamsSchema }), async (req, res, next) => {
+  try {
+    const { id } = req.params as z.infer<typeof continueParamsSchema>;
+    const data = await unattendedPreflightService.inspect(id);
+    res.status(200).json({
+      success: true,
+      data,
+      message: data.ready ? "Unattended production is ready." : "Unattended production has blockers.",
+    } satisfies ApiResponse<typeof data>);
+  } catch (error) {
+    next(error);
+  }
+});
+
 router.post(
   "/:id/production-experience",
   validate({ params: continueParamsSchema, body: productionExperienceBodySchema }),
@@ -144,7 +160,7 @@ router.post(
         success: true,
         data,
         message: experience === "simple"
-          ? "简易创作已启动，AI 将继续完成整本书。"
+          ? "无人值守创作已启动，AI 将按预算分批完成整本书。"
           : "已进入专业创作工作台。",
       } satisfies ApiResponse<typeof data>);
     } catch (error) {

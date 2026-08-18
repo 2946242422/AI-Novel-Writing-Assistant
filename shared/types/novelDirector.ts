@@ -23,6 +23,24 @@ import type { StyleIntentSummary } from "./styleEngine";
 import type { DirectorAutoApprovalConfig } from "./autoDirectorApproval";
 import type { DirectorIssuePolicy } from "./directorIssue";
 import type { DirectorRiskPolicy, DirectorRiskAssessment } from "./directorRisk";
+import {
+  DEFAULT_DIRECTOR_UNATTENDED_POLICY,
+  type DirectorUnattendedPolicy,
+} from "./novel/unattended.js";
+
+export {
+  DEFAULT_DIRECTOR_UNATTENDED_POLICY,
+  DIRECTOR_UNATTENDED_POLICY_VERSION,
+  estimateDirectorUnattendedCalls,
+  normalizeDirectorUnattendedPolicy,
+} from "./novel/unattended.js";
+export type {
+  DirectorUnattendedCallEstimate,
+  DirectorUnattendedPolicy,
+  DirectorUnattendedPreflightCheck,
+  DirectorUnattendedPreflightLevel,
+  DirectorUnattendedPreflightReport,
+} from "./novel/unattended.js";
 
 export const DIRECTOR_CORRECTION_PRESETS = [
   {
@@ -202,6 +220,7 @@ export interface DirectorAutoExecutionPlan {
   autoReview?: boolean;
   autoRepair?: boolean;
   artifactSyncMode?: ArtifactSyncMode;
+  unattendedPolicy?: DirectorUnattendedPolicy;
 }
 
 export interface DirectorFullBookAutopilotContract {
@@ -210,6 +229,7 @@ export interface DirectorFullBookAutopilotContract {
     mode: "book";
     autoReview: true;
     autoRepair: true;
+    unattendedPolicy: DirectorUnattendedPolicy;
   };
   userApprovalBoundary: "infrastructure_or_data_risk";
   interruptReasons: readonly DirectorFullBookAutopilotInterruptReason[];
@@ -221,6 +241,7 @@ export const DIRECTOR_FULL_BOOK_AUTOPILOT_CONTRACT = {
     mode: "book",
     autoReview: true,
     autoRepair: true,
+    unattendedPolicy: DEFAULT_DIRECTOR_UNATTENDED_POLICY,
   },
   userApprovalBoundary: "infrastructure_or_data_risk",
   interruptReasons: DIRECTOR_FULL_BOOK_AUTOPILOT_INTERRUPT_REASONS,
@@ -592,6 +613,8 @@ export interface DirectorTakeoverReadinessResponse {
     generatedChapterCount?: number;
     approvedChapterCount?: number;
     pendingRepairChapterCount?: number;
+    hasRecoverableDraftInRange?: boolean;
+    recoverableDraftChapterOrder?: number | null;
     hasUnpreparedChaptersInRange?: boolean;
     missingExecutionContractOrders?: number[];
   };

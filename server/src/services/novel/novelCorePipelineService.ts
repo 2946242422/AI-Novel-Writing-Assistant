@@ -299,9 +299,11 @@ export class NovelCorePipelineService {
         qualityThreshold: job.qualityThreshold ?? payload.qualityThreshold,
         repairMode: job.repairMode ?? payload.repairMode,
         artifactSyncMode: payload.artifactSyncMode,
+        unattendedPolicy: payload.unattendedPolicy,
         provider: payload.provider,
         model: payload.model,
         temperature: payload.temperature,
+        maxTokens: payload.maxTokens,
       });
   }
 
@@ -384,6 +386,7 @@ export class NovelCorePipelineService {
             provider: options.provider ?? "deepseek",
             model: options.model ?? "",
             temperature: options.temperature ?? 0.8,
+            maxTokens: options.maxTokens,
             controlPolicy: options.controlPolicy,
             workflowTaskId: options.workflowTaskId?.trim() || undefined,
             taskStyleProfileId: options.taskStyleProfileId?.trim() || undefined,
@@ -395,6 +398,7 @@ export class NovelCorePipelineService {
             qualityThreshold: options.qualityThreshold,
             repairMode: options.repairMode ?? "light_repair",
             artifactSyncMode: options.artifactSyncMode ?? "adaptive",
+            unattendedPolicy: options.unattendedPolicy,
           }),
         },
       });
@@ -448,9 +452,11 @@ export class NovelCorePipelineService {
       qualityThreshold: job.qualityThreshold ?? payload.qualityThreshold,
       repairMode: job.repairMode ?? payload.repairMode,
       artifactSyncMode: payload.artifactSyncMode,
+      unattendedPolicy: payload.unattendedPolicy,
       provider: payload.provider,
       model: payload.model,
       temperature: payload.temperature,
+      maxTokens: payload.maxTokens,
     });
   }
 

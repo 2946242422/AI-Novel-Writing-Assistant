@@ -485,6 +485,14 @@ export async function loadDirectorTakeoverState(input: {
     }
     return chapter.generationState !== "approved" && chapter.generationState !== "published";
   }).length;
+  const recoverableDraft = chapterRows.find((chapter) => {
+    if (!chapter.content?.trim()) {
+      return false;
+    }
+    return chapter.generationState !== "approved"
+      && chapter.generationState !== "published"
+      && chapter.chapterStatus !== "completed";
+  }) ?? null;
   const latestSeedPayload = parseSeedPayload<DirectorWorkflowSeedPayload>(latestTask?.seedPayloadJson) ?? null;
   const reconciledLatestAutoExecutionState = reconcileAutoExecutionStateAfterStaleNoChapterFailure({
     chapterRows: chapterRows as TakeoverChapterRow[],
@@ -574,6 +582,8 @@ export async function loadDirectorTakeoverState(input: {
       generatedChapterCount,
       approvedChapterCount,
       pendingRepairChapterCount,
+      hasRecoverableDraftInRange: Boolean(recoverableDraft),
+      recoverableDraftChapterOrder: recoverableDraft?.order ?? null,
       hasUnpreparedChaptersInRange: missingExecutionContractOrders.length > 0,
       missingExecutionContractOrders,
     },

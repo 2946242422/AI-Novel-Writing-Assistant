@@ -425,6 +425,9 @@ test("runPipelineChapterWithRuntime escalates patch failures to heavy repair and
     invoke: async () => ({
       content: "rewritten chapter after safe full repair",
     }),
+    stream: async function* () {
+      yield { content: "rewritten chapter after safe full repair" };
+    },
   }));
 
   try {
@@ -635,6 +638,9 @@ test("runPipelineChapterWithRuntime escalates short patch targets to heavy repai
     invoke: async () => ({
       content: "rewritten chapter after short patch target",
     }),
+    stream: async function* () {
+      yield { content: "rewritten chapter after short patch target" };
+    },
   }));
 
   try {
@@ -799,6 +805,9 @@ test("runPipelineChapterWithRuntime forces full rewrite when style source entiti
     invoke: async () => ({
       content: "clean rewritten chapter with transferable pacing only",
     }),
+    stream: async function* () {
+      yield { content: "clean rewritten chapter with transferable pacing only" };
+    },
   }));
 
   try {

@@ -1,4 +1,10 @@
 import { randomUUID } from "node:crypto";
+import {
+  publishRuntimeResumed,
+  publishRuntimeStepCompleted,
+  publishRuntimeStepFailed,
+  publishRuntimeStepStarted,
+} from "../../../../platform/llm/live/runtimeLiveSession";
 import type {
   DirectorArtifactRef,
   DirectorEvent,
@@ -349,6 +355,11 @@ export class DirectorRuntimeStore {
         }),
       ],
     }));
+    publishRuntimeResumed({
+      taskId: input.taskId,
+      novelId: input.novelId,
+      summary: input.summary ?? "自动导演已按当前资产继续运行。",
+    });
   }
 
   async recordStepStarted(input: {
@@ -397,6 +408,7 @@ export class DirectorRuntimeStore {
         ],
       };
     });
+    publishRuntimeStepStarted(input);
   }
 
   async recordStepCompleted(input: {
@@ -462,6 +474,7 @@ export class DirectorRuntimeStore {
         ],
       };
     });
+    publishRuntimeStepCompleted(input);
   }
 
   async recordStepFailed(input: {
@@ -501,6 +514,7 @@ export class DirectorRuntimeStore {
         }),
       ],
     }));
+    publishRuntimeStepFailed(input);
   }
 
   async recordNodeGate(input: {

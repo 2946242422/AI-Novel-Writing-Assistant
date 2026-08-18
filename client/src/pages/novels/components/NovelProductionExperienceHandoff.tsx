@@ -1,7 +1,7 @@
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ArrowRight, BookOpen, Check, Loader2, Settings2, Sparkles } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AlertTriangle, ArrowRight, BookOpen, Check, Gauge, Loader2, RefreshCw, Settings2, Sparkles } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { selectNovelProductionExperience } from "@/api/novelWorkflow";
+import { getNovelUnattendedPreflight, selectNovelProductionExperience } from "@/api/novelWorkflow";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/components/ui/toast";
 import OnboardingTip from "@/components/onboarding/OnboardingTip";
@@ -20,6 +20,13 @@ export default function NovelProductionExperienceHandoff({
 }: NovelProductionExperienceHandoffProps) {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const preflightQuery = useQuery({
+    queryKey: ["novel-workflows", taskId, "unattended-preflight"],
+    queryFn: () => getNovelUnattendedPreflight(taskId),
+    retry: false,
+  });
+  const preflight = preflightQuery.data?.data ?? null;
+  const unattendedReady = Boolean(preflight?.ready) && !preflightQuery.isError;
   const mutation = useMutation({
     mutationFn: async (experience: "simple" | "professional") => {
       const response = await selectNovelProductionExperience(taskId, experience);
@@ -35,7 +42,7 @@ export default function NovelProductionExperienceHandoff({
         queryClient.invalidateQueries({ queryKey: queryKeys.onboarding.firstNovel }),
       ]);
       toast.success(response.experience === "simple"
-        ? "简易创作已启动，AI 会继续完成整本书。"
+        ? "无人值守创作已启动，AI 会按预算分批完成整本书。"
         : "前期准备已完成，可以在专业工作台中继续创作。");
       navigate(response.targetRoute, { replace: true });
     },
@@ -47,7 +54,7 @@ export default function NovelProductionExperienceHandoff({
       <OnboardingTip
         storageKey="production-experience-handoff"
         title="这是正文开始前唯一一次生产方式选择"
-        description="新手推荐简易创作：AI 会持续写作、审校和修复，你只看稳定的完成稿。需要亲自修改时再选专业创作。"
+        description="新手推荐无人值守创作：AI 会按预算分批写作、审校和修复，安全草稿可从最近阶段恢复。需要亲自修改时再选专业创作。"
       />
       <div className="relative overflow-hidden rounded-3xl bg-foreground px-6 py-7 text-background shadow-[0_30px_80px_-50px_hsl(var(--foreground))] sm:px-8 sm:py-9">
         <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full bg-primary/25 blur-3xl" />
@@ -72,19 +79,43 @@ export default function NovelProductionExperienceHandoff({
             </span>
             <span className="rounded-full bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground">推荐新手</span>
           </div>
-          <h2 className="mt-5 text-xl font-semibold text-foreground">简易创作</h2>
-          <p className="mt-2 text-sm leading-6 text-muted-foreground">AI 接管正文生产，你只需关注章节进度和完成稿。</p>
+          <h2 className="mt-5 text-xl font-semibold text-foreground">无人值守创作</h2>
+          <p className="mt-2 text-sm leading-6 text-muted-foreground">AI 接管正文生产，按章节边界保存、检查、恢复和继续。</p>
           <ul className="mt-5 flex-1 space-y-3 text-sm text-foreground">
-            {["持续写完整本书", "自动审校、修复与必要重规划", "进入只读章节书架"].map((item) => (
+            {["按最多 5 章分批推进", "小问题自动修复或记录后继续", "安全草稿从审校或修复阶段恢复"].map((item) => (
               <li key={item} className="flex items-center gap-2.5">
                 <Check className="h-4 w-4 shrink-0 text-primary" />
                 {item}
               </li>
             ))}
           </ul>
-          <Button type="button" className="mt-6 w-full justify-between" disabled={mutation.isPending} onClick={() => mutation.mutate("simple")}>
+          <div className="mt-5 rounded-2xl border border-primary/15 bg-primary/5 p-4" aria-live="polite">
+            {preflightQuery.isLoading ? (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 className="h-4 w-4 animate-spin" />正在计算下一批调用和恢复位置…</div>
+            ) : preflightQuery.isError ? (
+              <div className="space-y-3">
+                <div className="flex items-start gap-2 text-sm text-destructive"><AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />启动前检查失败，暂不会开始无人值守生产。</div>
+                <Button type="button" size="sm" variant="outline" onClick={() => void preflightQuery.refetch()}><RefreshCw className="h-4 w-4" />重新检查</Button>
+              </div>
+            ) : preflight ? (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-foreground"><Gauge className="h-4 w-4 text-primary" />下一批生产预算</div>
+                <div className="grid gap-2 text-xs leading-5 text-muted-foreground sm:grid-cols-2">
+                  <div>章节：{preflight.nextBatchChapterCount} 章</div>
+                  <div>AI 调用：约 {preflight.estimatedBatchCalls} 次</div>
+                  <div>Token：约 {preflight.estimatedBatchTokens.toLocaleString("zh-CN")}</div>
+                  <div>时长：约 {preflight.estimatedBatchMinutes} 分钟</div>
+                </div>
+                {preflight.recoverableChapterOrder ? <div className="text-xs leading-5 text-muted-foreground">将从第 {preflight.recoverableChapterOrder} 章的安全草稿继续，不重写已保存正文。</div> : null}
+                {preflight.checks.filter((item) => item.level !== "pass").map((item) => (
+                  <div key={item.id} className={`text-xs leading-5 ${item.level === "blocker" ? "text-destructive" : "text-amber-700"}`}>{item.message}</div>
+                ))}
+              </div>
+            ) : null}
+          </div>
+          <Button type="button" className="mt-6 w-full justify-between" disabled={mutation.isPending || !unattendedReady} onClick={() => mutation.mutate("simple")}>
             {mutation.isPending && mutation.variables === "simple" ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-            让 AI 写完整本书
+            {preflightQuery.isLoading ? "正在检查生产预算" : "启动无人值守创作"}
             <ArrowRight className="h-4 w-4" />
           </Button>
         </article>

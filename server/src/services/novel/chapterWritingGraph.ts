@@ -38,6 +38,7 @@ export interface ChapterGraphLLMOptions {
   provider?: LLMProvider;
   model?: string;
   temperature?: number;
+  maxTokens?: number;
   taskType?: TaskType;
 }
 
@@ -322,7 +323,7 @@ export class ChapterWritingGraph {
         provider: input.options.provider,
         model: input.options.model,
         temperature: input.options.temperature ?? 0.8,
-        maxTokens: undefined,
+        maxTokens: input.options.maxTokens,
         novelId: input.novelId,
         chapterId: input.chapter.id,
         stage: "writer_draft",

@@ -1,6 +1,7 @@
 import type { ApiResponse } from "@ai-novel/shared/types/api";
 import type { DirectorCommandAcceptedResponse } from "@ai-novel/shared/types/directorRuntime";
 import type { DirectorContinuationMode } from "@ai-novel/shared/types/novelDirector";
+import type { DirectorUnattendedPreflightReport } from "@ai-novel/shared/types/novelDirector";
 import type {
   NovelWorkflowCheckpoint,
   NovelProductionExperience,
@@ -25,6 +26,13 @@ export async function continueNovelWorkflow(directorTaskId: string, payload?: {
   continuationMode?: DirectorContinuationMode;
 }) {
   const { data } = await apiClient.post<ApiResponse<DirectorCommandAcceptedResponse>>(`/novel-workflows/${directorTaskId}/continue`, payload ?? {});
+  return data;
+}
+
+export async function getNovelUnattendedPreflight(directorTaskId: string) {
+  const { data } = await apiClient.get<ApiResponse<DirectorUnattendedPreflightReport>>(
+    `/novel-workflows/${directorTaskId}/unattended-preflight`,
+  );
   return data;
 }
 

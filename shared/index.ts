@@ -4,6 +4,7 @@ export * from "./types/characterDynamics";
 export * from "./types/chapterLengthControl";
 export * from "./types/chapterCreativeContract";
 export * from "./types/novel/readerExperience";
+export * from "./types/novel/unattended.js";
 export * from "./types/chapterRuntime";
 export * from "./types/characterResource";
 export * from "./types/characterSync";

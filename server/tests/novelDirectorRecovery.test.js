@@ -323,6 +323,26 @@ test("asset-first recovery routes to structured outline when persisted range sti
   });
 });
 
+test("asset-first recovery resumes a saved draft before rebuilding a missing execution contract", () => {
+  const recovery = resolveAssetFirstRecoveryFromSnapshot({
+    runMode: "full_book_autopilot",
+    structuredOutlineRecoveryStep: "chapter_sync",
+    volumeCount: 2,
+    hasVolumeStrategyPlan: true,
+    hasActivePipelineJob: false,
+    hasExecutableRange: true,
+    hasAutoExecutionState: true,
+    hasRecoverableDraftInRange: true,
+    hasMissingExecutionContractInRange: true,
+    latestCheckpointType: "chapter_batch_ready",
+  });
+
+  assert.deepEqual(recovery, {
+    type: "auto_execution",
+    resumeCheckpointType: "replan_required",
+  });
+});
+
 test("asset-first recovery does not interrupt an active batch to补齐细化", () => {
   // 有进行中的批次时，缺口信号不应打断当前批次。
   const recovery = resolveAssetFirstRecoveryFromSnapshot({

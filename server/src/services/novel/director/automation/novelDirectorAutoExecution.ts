@@ -10,6 +10,7 @@ import type {
   DirectorAutoExecutionPlan,
   DirectorAutoExecutionState,
 } from "@ai-novel/shared/types/novelDirector";
+import { normalizeDirectorUnattendedPolicy } from "@ai-novel/shared/types/novelDirector";
 import { parseChapterScenePlan } from "@ai-novel/shared/types/chapterLengthControl";
 import { resolveDirectorQualityLoopBudgetNextAction } from "../runtime/DirectorQualityLoopBudgetLedgerService";
 import {
@@ -59,6 +60,9 @@ export function normalizeDirectorAutoExecutionPlan(
   const autoReview = plan?.autoReview ?? true;
   const autoRepair = autoReview ? (plan?.autoRepair ?? true) : false;
   const artifactSyncMode = plan?.artifactSyncMode ?? "adaptive";
+  const unattendedPolicy = plan?.unattendedPolicy
+    ? normalizeDirectorUnattendedPolicy(plan.unattendedPolicy)
+    : undefined;
   const rawMode = typeof (plan as { mode?: unknown } | null | undefined)?.mode === "string"
     ? (plan as { mode?: string }).mode
     : null;
@@ -72,6 +76,7 @@ export function normalizeDirectorAutoExecutionPlan(
       autoReview,
       autoRepair,
       artifactSyncMode,
+      unattendedPolicy,
     };
   }
   if (plan?.mode === "volume") {
@@ -81,6 +86,7 @@ export function normalizeDirectorAutoExecutionPlan(
       autoReview,
       autoRepair,
       artifactSyncMode,
+      unattendedPolicy,
     };
   }
   if (plan?.mode === "book") {
@@ -89,6 +95,7 @@ export function normalizeDirectorAutoExecutionPlan(
       autoReview,
       autoRepair,
       artifactSyncMode,
+      unattendedPolicy,
     };
   }
   const fallbackStartOrder = Math.max(
@@ -106,6 +113,7 @@ export function normalizeDirectorAutoExecutionPlan(
     autoReview,
     autoRepair,
     artifactSyncMode,
+    unattendedPolicy,
   };
 }
 
@@ -419,6 +427,7 @@ export function buildDirectorAutoExecutionState(input: {
     autoReview: plan.autoReview ?? true,
     autoRepair: plan.autoReview === false ? false : (plan.autoRepair ?? true),
     artifactSyncMode: plan.artifactSyncMode ?? "adaptive",
+    unattendedPolicy: plan.unattendedPolicy,
     scopeLabel: input.scopeLabel?.trim() || buildDirectorAutoExecutionScopeLabel(plan, totalChapterCount, input.volumeTitle),
     volumeOrder: plan.mode === "volume" ? plan.volumeOrder : undefined,
     volumeTitle: input.volumeTitle ?? null,
@@ -513,6 +522,7 @@ export function buildDirectorAutoExecutionPipelineOptions(input: {
   provider?: LLMProvider;
   model?: string;
   temperature?: number;
+  maxTokens?: number;
   workflowTaskId?: string;
   taskStyleProfileId?: string;
   controlAdvanceMode?: NovelControlPolicy["advanceMode"];
@@ -522,6 +532,7 @@ export function buildDirectorAutoExecutionPipelineOptions(input: {
   autoReview?: boolean;
   autoRepair?: boolean;
   artifactSyncMode?: ArtifactSyncMode;
+  unattendedPolicy?: DirectorAutoExecutionPlan["unattendedPolicy"];
   repairMode?: DirectorAutoExecutionRepairMode;
 }) {
   const autoReview = input.autoReview ?? true;
@@ -541,9 +552,11 @@ export function buildDirectorAutoExecutionPipelineOptions(input: {
     provider: input.provider,
     model: input.model,
     temperature: input.temperature,
+    maxTokens: input.maxTokens,
     workflowTaskId: input.workflowTaskId,
     taskStyleProfileId: input.taskStyleProfileId,
     artifactSyncMode: input.artifactSyncMode ?? "adaptive",
+    unattendedPolicy: input.unattendedPolicy,
   };
 }
 

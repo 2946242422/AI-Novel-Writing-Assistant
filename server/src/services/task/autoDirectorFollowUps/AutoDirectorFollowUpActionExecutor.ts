@@ -301,7 +301,9 @@ export class AutoDirectorFollowUpActionExecutor {
         taskId: input.taskId,
         actionCode: input.actionCode,
         code: "executed",
-        message: "执行成功",
+        message: input.actionCode === "retry_with_task_model" || input.actionCode === "retry_with_route_model"
+          ? "重试命令已提交，AI 会从最近安全阶段继续。"
+          : "恢复命令已提交，请在 AI 实况中查看真实执行结果。",
         task,
       };
       EXECUTED_ACTION_CACHE.set(executedCacheKey, result);

@@ -16,7 +16,7 @@ export interface ChapterWriterPromptInput {
 
 export const chapterWriterPrompt: PromptAsset<ChapterWriterPromptInput, string, string> = {
   id: "novel.chapter.writer",
-  version: "v7",
+  version: "v8",
   taskType: "writer",
   mode: "text",
   language: "zh",
@@ -232,6 +232,7 @@ export const chapterWriterPrompt: PromptAsset<ChapterWriterPromptInput, string, 
         "0. 以本章任务、人物状态、伏笔指令和连续性上下文为准，避免提前揭示未来答案或写到后续章节事件。",
         "1. 必须推进新的剧情动作，本章必须发生实质变化（局面、关系、信息、风险、决策至少一项）。",
         "1a. reader_experience 是本章读者体验硬合同：必须让 promisedReward、keyTurn 与 netChange 在正文中可见，主角必须围绕 protagonistWant 主动行动并面对 primaryResistance。",
+        "1a-1. 把 readerQuestion→阻力蓄压→主角选择→keyTurn→emotionalShift 余震→endingHook 写成连续因果。安静章可以没有大反转，但不能没有认知、关系、目标或状态变化。",
         "1b. inheritedHookResponsibilities 必须优先得到回应、触达或部分兑现；不得只制造新钩子而不给旧问题任何回报。",
         "1c. craft_plan 是 AI 针对本章任务自主选择的局部写法策略。只在指定 sceneKeys 执行选中的技法，并以 purpose 与 guidance 为准；未选中的技法不需要补齐，mode=none 时不得强塞技巧。",
         "1d. craft_plan 不创造新剧情义务；若与 chapter mission、人物硬事实、章节边界冲突，必须服从硬事实与章节任务。",
